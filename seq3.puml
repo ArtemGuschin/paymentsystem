@@ -1,0 +1,66 @@
+@startuml
+package "person-service" {
+  [API Controller] as Controller <<Generated>>
+  [User Service] as UserService
+  [Individual Service] as IndividualService
+  [Address Service] as AddressService
+  [Saga Service] as SagaService
+  [Audit Service] as AuditService <<Hibernate Envers>>
+  [Transaction Manager] as TxManager <<Spring @Transactional>>
+
+  [OpenAPI Generator] as OpenAPI
+  [Monitoring] as Monitoring <<Spring Actuator>>
+  [Tracing] as Tracing <<OpenTelemetry>>
+
+  database "PostgreSQL" as DB {
+    [users] as Users
+    [individuals] as Individuals
+    [addresses] as Addresses
+    [audit_log] as AuditLog
+    [saga_states] as SagaStates
+  }
+}
+
+Controller --> UserService : вызов операций
+UserService --> IndividualService : создание/обновление
+UserService --> AddressService : создание/обновление
+UserService --> TxManager : управление транзакциями
+TxManager --> Users : запросы
+TxManager --> Individuals : запросы
+TxManager --> Addresses : запросы
+
+Controller --> SagaService : компенсационные операции
+SagaService --> UserService : откат изменений
+AuditService --> UserService : логирование изменений
+AuditService --> AuditLog : запись истории
+
+OpenAPI --> Controller : генерация кода
+Monitoring --> Controller : сбор метрик
+Tracing --> Controller : трассировка запросов
+
+package "common" {
+  [UserDTO] as DTO <<OpenAPI>>
+  [Client Library] as Client
+}
+
+Controller .right.> DTO : использует
+UserService .right.> DTO : использует
+Client --> Controller : вызовы API
+
+package "Интеграции" {
+  [Feign Client] as Feign <<individuals-api>>
+  [Prometheus Exporter] as PromExport
+  [OTel Exporter] as OTelExport
+}
+
+PromExport --> Monitoring : экспорт метрик
+OTelExport --> Tracing : экспорт трасс
+Feign --> Client : реализация клиента
+
+node "individuals-api" as IA
+IA --> Feign : вызовы API
+
+node "Keycloak" as KC
+IA --> KC : регистрация
+
+@enduml

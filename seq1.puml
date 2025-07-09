@@ -1,0 +1,73 @@
+@startuml
+actor Клиент
+participant "individuals-api" as API
+participant "Saga Orchestrator" as Orchestrator
+participant "person-service" as PersonService
+database "PostgreSQL" as DB
+participant "Keycloak" as Keycloak
+
+== Успешная регистрация ==
+
+Клиент -> API: POST /register
+activate API
+API -> Orchestrator: Запуск саги регистрации
+activate Orchestrator
+
+Orchestrator -> PersonService: createUser()
+activate PersonService
+PersonService -> DB: Начать транзакцию
+PersonService -> DB: INSERT individual
+PersonService -> DB: INSERT user
+PersonService -> DB: INSERT address
+PersonService -> DB: Зафиксировать транзакцию
+DB --> PersonService: user_uid
+PersonService --> Orchestrator: SUCCESS
+deactivate PersonService
+
+Orchestrator -> API: registerInKeycloak(user_uid)
+activate API
+API -> Keycloak: POST /users (с user_uid)
+Keycloak --> API: 201 Created
+deactivate API
+Orchestrator -> Orchestrator: Сохранить состояние саги
+Orchestrator --> API: Saga SUCCESS
+deactivate Orchestrator
+API --> Клиент: 201 Created
+
+== Ошибка регистрации в Keycloak ==
+
+Клиент -> API: POST /register
+activate API
+API -> Orchestrator: Запуск саги регистрации
+activate Orchestrator
+
+Orchestrator -> PersonService: createUser()
+activate PersonService
+PersonService -> DB: Транзакция создания
+DB --> PersonService: user_uid
+PersonService --> Orchestrator: SUCCESS
+deactivate PersonService
+
+Orchestrator -> API: registerInKeycloak(user_uid)
+activate API
+API -> Keycloak: POST /users
+Keycloak --> API: 500 Error
+deactivate API
+
+Orchestrator -> PersonService: compensateUser(user_uid)
+activate PersonService
+PersonService -> DB: Начать транзакцию
+PersonService -> DB: DELETE address
+PersonService -> DB: DELETE user
+PersonService -> DB: DELETE individual
+PersonService -> DB: Зафиксировать транзакцию
+DB --> PersonService: Success
+PersonService --> Orchestrator: COMPENSATED
+deactivate PersonService
+
+Orchestrator --> API: Saga FAILED
+deactivate Orchestrator
+API --> Клиент: 500 Registration Error
+deactivate API
+
+@enduml
