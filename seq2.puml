@@ -8,36 +8,36 @@ Person(user, "Клиент", "Регистрируется в системе")
 
 System_Boundary(monorepo, "Монорепозиторий") {
     Container(api_gw, "API Gateway", "Spring Cloud Gateway", "Маршрутизация запросов")
-    Container(individuals_api, "individuals-api", "Spring Boot", "Фасад для внешних систем\n• Интеграция с Keycloak\n• Генерация клиентов из OpenAPI")
+    Container(individuals_api, "individuals-api", "Spring Boot", "Фасад для внешних систем\n• Интеграция с Keycloak\n• Генерация клиентов из OpenAPI\n• Оркестрация саг")
     Container(person_svc, "person-service", "Spring Boot", "Управление пользователями\n• Транзакции\n• Аудит (Hibernate Envers)\n• OpenAPI генерация")
-    ContainerDb(postgres, "PostgreSQL", "База данных", "Хранит:\n- users\n- individuals\n- addresses\n- audit_logs\n- saga_states\n\nМиграции: Flyway")
+    ContainerDb(person_db, "PostgreSQL", "База данных", "Хранит:\n- users\n- individuals\n- addresses\n- audit_logs\n\nМиграции: Flyway")
 }
 
 System_Boundary(infra, "Инфраструктура") {
     Container(keycloak, "Keycloak", "Сервер аутентификации")
+    ContainerDb(keycloak_db, "PostgreSQL", "Keycloak DB", "Хранит данные аутентификации")
     Container(prometheus, "Prometheus", "Система мониторинга", "Сбор метрик с Actuator")
     Container(grafana, "Grafana", "Визуализация метрик", "Дашборды:\n- Latency\n- Errors\n- Трассировки")
     Container(tempo, "Tempo", "Система трассировки", "Хранение трасс OpenTelemetry")
-    Container(nexus, "Nexus", "Хранилище артефактов", "Хранение:\n- person-service.jar\n- Генерируемые клиенты")
 }
 
 Rel(user, api_gw, "HTTPS", "API запросы")
 Rel(admin, api_gw, "HTTPS", "Администрирование")
 Rel(api_gw, individuals_api, "HTTP", "Роутинг запросов")
 Rel(individuals_api, person_svc, "HTTP", "REST API\n(через сгенерированного клиента)")
-Rel(person_svc, postgres, "JDBC", "Транзакционные операции")
+Rel(person_svc, person_db, "JDBC", "Транзакционные операции")
 Rel(individuals_api, keycloak, "REST", "Регистрация пользователей\nАутентификация")
+Rel(keycloak, keycloak_db, "JDBC", "Хранение данных пользователей")
 Rel(person_svc, prometheus, "HTTP", "Метрики приложения (/actuator/prometheus)")
 Rel(person_svc, tempo, "gRPC", "Трассировка запросов")
+Rel(individuals_api, tempo, "gRPC", "Трассировка запросов")
 Rel(grafana, prometheus, "HTTP", "Запрос метрик")
 Rel(grafana, tempo, "HTTP", "Запрос трасс")
-Rel(nexus, individuals_api, "HTTP", "Загрузка клиента person-service")
-Rel(nexus, person_svc, "HTTP", "Публикация артефакта")
 
 Legend
   "Транзакционность через Saga Pattern"
   "Мониторинг: Prometheus + Grafana"
   "Трассировка: OpenTelemetry + Tempo"
-  "Хранение артефактов: Nexus"
+  "Keycloak использует отдельную БД"
 End Legend
 @enduml

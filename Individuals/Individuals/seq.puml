@@ -1,0 +1,30 @@
+@startuml
+actor Клиент
+participant "Individuals API" as API
+participant "Keycloak" as KC
+
+== Регистрация Пользователя ==
+Клиент -> API: POST /v1/auth/registration\n{email, password, confirm_password}
+API -> KC: Создать пользователя\n(email, password)
+KC --> API: Подтверждение создания
+API -> Клиент: Возврат токенов\n{access_token, refresh_token, ...}
+
+== Логин Пользователя ==
+Клиент -> API: POST /v1/auth/login\n{email, password}
+API -> KC: Аутентификация пользователя\n(email, password)
+KC --> API: Токены\n{access_token, refresh_token, ...}
+API -> Клиент: Возврат токенов
+
+== Обновление Токена ==
+Клиент -> API: POST /v1/auth/refresh-token\n{refresh_token}
+API -> KC: Обновить токен\n(refresh_token)
+KC --> API: Новые токены
+API -> Клиент: Возврат новых токенов
+
+== Получение Данных Пользователя ==
+Клиент -> API: GET /v1/users/{id}\nAuthorization: Bearer access_token
+API -> KC: Запрос данных пользователя\n(id)
+KC --> API: Данные пользователя
+API -> Клиент: Возврат данных пользователя
+@enduml
+
