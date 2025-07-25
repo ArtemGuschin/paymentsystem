@@ -1,0 +1,375 @@
+openapi: 3.0.3
+info:
+  title: Person Service API
+  description: Микросервис управления пользователями с транзакционными операциями
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api
+    description: Локальная среда
+  - url: https://person-service.prod/api
+    description: Продакшн среда
+
+paths:
+  /users:
+    post:
+      summary: Создание нового пользователя
+      description: Транзакционное создание пользователя с linked сущностями
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+      responses:
+        '201':
+          description: Пользователь создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Неверные входные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Users
+
+  /users/{userId}:
+    get:
+      summary: Получение пользователя по ID
+      operationId: getUserById
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Успешное получение данных
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          description: Пользователь не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Users
+    put:
+      summary: Обновление данных пользователя
+      description: Транзакционное обновление с аудитом изменений
+      operationId: updateUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: Данные обновлены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Неверные входные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Пользователь не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Users
+    delete:
+      summary: Удаление пользователя
+      description: Транзакционное удаление со всеми связанными сущностями
+      operationId: deleteUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Пользователь удален
+        '404':
+          description: Пользователь не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Users
+
+  /users/by-email/{email}:
+    get:
+      summary: Получение пользователя по email
+      operationId: getUserByEmail
+      parameters:
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        '200':
+          description: Успешное получение данных
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          description: Пользователь не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Users
+
+  /users/{userId}/audit:
+    get:
+      summary: Получение истории изменений пользователя
+      description: Возвращает аудит изменений с использованием Hibernate Envers
+      operationId: getUserAudit
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: История изменений
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditEntry'
+        '404':
+          description: Пользователь не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Audit
+
+components:
+  schemas:
+    UserCreateRequest:
+      type: object
+      required:
+        - email
+        - password
+        - firstName
+        - lastName
+        - address
+        - individual
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          minLength: 8
+          example: Str0ngP@ss
+        firstName:
+          type: string
+          example: Иван
+        lastName:
+          type: string
+          example: Иванов
+        address:
+          $ref: '#/components/schemas/AddressRequest'
+        individual:
+          $ref: '#/components/schemas/IndividualRequest'
+
+    UserUpdateRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        address:
+          $ref: '#/components/schemas/AddressRequest'
+        individual:
+          $ref: '#/components/schemas/IndividualRequest'
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        address:
+          $ref: '#/components/schemas/AddressResponse'
+        individual:
+          $ref: '#/components/schemas/IndividualResponse'
+
+    AddressRequest:
+      type: object
+      required:
+        - countryId
+        - addressLine
+        - zipCode
+        - city
+      properties:
+        countryId:
+          type: integer
+          example: 1
+        addressLine:
+          type: string
+          example: ул. Пушкина, д.10
+        zipCode:
+          type: string
+          example: '123456'
+        city:
+          type: string
+          example: Москва
+        state:
+          type: string
+          example: Московская область
+
+    AddressResponse:
+      allOf:
+        - $ref: '#/components/schemas/AddressRequest'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    IndividualRequest:
+      type: object
+      required:
+        - passportNumber
+        - phoneNumber
+      properties:
+        passportNumber:
+          type: string
+          example: '1234567890'
+        phoneNumber:
+          type: string
+          example: '+79161234567'
+
+    IndividualResponse:
+      allOf:
+        - $ref: '#/components/schemas/IndividualRequest'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            verifiedAt:
+              type: string
+              format: date-time
+            status:
+              type: string
+              example: ACTIVE
+
+    AuditEntry:
+      type: object
+      properties:
+        revisionId:
+          type: integer
+        revisionType:
+          type: string
+          enum: [CREATE, UPDATE, DELETE]
+        revisionDate:
+          type: string
+          format: date-time
+        changedFields:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              oldValue:
+                type: string
+              newValue:
+                type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+
+securitySchemes:
+  ApiKeyAuth:
+    type: apiKey
+    in: header
+    name: X-API-KEY
+    description: API Key для межсервисного взаимодействия
+
+tags:
+  - name: Users
+    description: Управление пользователями
+  - name: Audit
+    description: Аудит изменений
