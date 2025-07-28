@@ -1,7 +1,6 @@
 @startuml
 actor Клиент
 participant "individuals-api" as API
-participant "Saga Orchestrator" as Orchestrator
 participant "person-service" as PersonService
 database "PostgreSQL" as DB
 participant "Keycloak" as Keycloak
@@ -10,10 +9,8 @@ participant "Keycloak" as Keycloak
 
 Клиент -> API: POST /register
 activate API
-API -> Orchestrator: Запуск саги регистрации
-activate Orchestrator
 
-Orchestrator -> PersonService: createUser()
+API -> PersonService: POST /users (createUser)
 activate PersonService
 PersonService -> DB: Начать транзакцию
 PersonService -> DB: INSERT individual
@@ -21,40 +18,36 @@ PersonService -> DB: INSERT user
 PersonService -> DB: INSERT address
 PersonService -> DB: Зафиксировать транзакцию
 DB --> PersonService: user_uid
-PersonService --> Orchestrator: SUCCESS
+PersonService --> API: 201 Created (user_uid)
 deactivate PersonService
 
-Orchestrator -> API: registerInKeycloak(user_uid)
-activate API
-API -> Keycloak: POST /users (с user_uid)
+API -> Keycloak: POST /users (с user_uid в атрибутах)
+activate Keycloak
 Keycloak --> API: 201 Created
-deactivate API
-Orchestrator -> Orchestrator: Сохранить состояние саги
-Orchestrator --> API: Saga SUCCESS
-deactivate Orchestrator
+deactivate Keycloak
+
+API -> API: Сохранить состояние саги
 API --> Клиент: 201 Created
+deactivate API
 
 == Ошибка регистрации в Keycloak ==
 
 Клиент -> API: POST /register
 activate API
-API -> Orchestrator: Запуск саги регистрации
-activate Orchestrator
 
-Orchestrator -> PersonService: createUser()
+API -> PersonService: POST /users (createUser)
 activate PersonService
 PersonService -> DB: Транзакция создания
 DB --> PersonService: user_uid
-PersonService --> Orchestrator: SUCCESS
+PersonService --> API: 201 Created (user_uid)
 deactivate PersonService
 
-Orchestrator -> API: registerInKeycloak(user_uid)
-activate API
 API -> Keycloak: POST /users
+activate Keycloak
 Keycloak --> API: 500 Error
-deactivate API
+deactivate Keycloak
 
-Orchestrator -> PersonService: compensateUser(user_uid)
+API -> PersonService: POST /users/{user_uid}/compensate
 activate PersonService
 PersonService -> DB: Начать транзакцию
 PersonService -> DB: DELETE address
@@ -62,11 +55,9 @@ PersonService -> DB: DELETE user
 PersonService -> DB: DELETE individual
 PersonService -> DB: Зафиксировать транзакцию
 DB --> PersonService: Success
-PersonService --> Orchestrator: COMPENSATED
+PersonService --> API: 200 OK
 deactivate PersonService
 
-Orchestrator --> API: Saga FAILED
-deactivate Orchestrator
 API --> Клиент: 500 Registration Error
 deactivate API
 

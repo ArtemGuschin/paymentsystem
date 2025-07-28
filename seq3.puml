@@ -1,13 +1,16 @@
 @startuml
 package "person-service" {
-  [API Controller] as Controller <<Generated>>
+  [API Controller] as Controller <<Spring REST>>
   [User Service] as UserService
   [Individual Service] as IndividualService
   [Address Service] as AddressService
-  [Saga Service] as SagaService
   [Audit Service] as AuditService <<Hibernate Envers>>
-  [Transaction Manager] as TxManager <<Spring @Transactional>>
 
+  [User Repository] as UserRepo <<Spring Data>>
+  [Individual Repository] as IndividualRepo <<Spring Data>>
+  [Address Repository] as AddressRepo <<Spring Data>>
+
+  [Transaction Manager] as TxManager <<Spring @Transactional>>
   [OpenAPI Generator] as OpenAPI
   [Monitoring] as Monitoring <<Spring Actuator>>
   [Tracing] as Tracing <<OpenTelemetry>>
@@ -17,23 +20,29 @@ package "person-service" {
     [individuals] as Individuals
     [addresses] as Addresses
     [audit_log] as AuditLog
-    [saga_states] as SagaStates
   }
 }
 
+' Основные связи
 Controller --> UserService : вызов операций
-UserService --> IndividualService : создание/обновление
-UserService --> AddressService : создание/обновление
+UserService --> IndividualService : делегирует
+UserService --> AddressService : делегирует
 UserService --> TxManager : управление транзакциями
-TxManager --> Users : запросы
-TxManager --> Individuals : запросы
-TxManager --> Addresses : запросы
 
-Controller --> SagaService : компенсационные операции
-SagaService --> UserService : откат изменений
+' Репозитории
+UserService --> UserRepo : использует
+IndividualService --> IndividualRepo : использует
+AddressService --> AddressRepo : использует
+UserRepo --> Users : доступ
+IndividualRepo --> Individuals : доступ
+AddressRepo --> Addresses : доступ
+
+' Аудит и транзакции
 AuditService --> UserService : логирование изменений
 AuditService --> AuditLog : запись истории
+TxManager --> DB : управление транзакциями
 
+' Вспомогательные компоненты
 OpenAPI --> Controller : генерация кода
 Monitoring --> Controller : сбор метрик
 Tracing --> Controller : трассировка запросов
@@ -43,22 +52,24 @@ package "common" {
   [Client Library] as Client
 }
 
+' Использование DTO
 Controller .right.> DTO : использует
 UserService .right.> DTO : использует
-Client --> Controller : вызовы API
+
+' Интеграции
+node "individuals-api" as IA
+IA --> Client : вызовы API
+Client --> Controller : маршрутизация
 
 package "Интеграции" {
-  [Feign Client] as Feign <<individuals-api>>
+  [Feign Client] as Feign
   [Prometheus Exporter] as PromExport
   [OTel Exporter] as OTelExport
 }
 
+Feign --> Client : реализация
 PromExport --> Monitoring : экспорт метрик
 OTelExport --> Tracing : экспорт трасс
-Feign --> Client : реализация клиента
-
-node "individuals-api" as IA
-IA --> Feign : вызовы API
 
 node "Keycloak" as KC
 IA --> KC : регистрация

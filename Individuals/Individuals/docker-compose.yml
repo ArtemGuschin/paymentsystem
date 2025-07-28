@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  individuals-api:
+    build: .
+    ports:
+      - "9090:9092"
+    environment:
+      - KEYCLOAK_SERVER_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=individuals-realm
+      - KEYCLOAK_CLIENT_ID=individuals-api
+      - KEYCLOAK_CLIENT_SECRET=your-client-secret
+      - KEYCLOAK_ADMIN_USERNAME=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+    networks:
+      - individuals-net
+    depends_on:
+      keycloak:
+        condition: service_started
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.2
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY: edge
+      KC_HOSTNAME_STRICT: "false"
+    volumes:
+      - ./realm-config.json:/opt/keycloak/data/import/realm-config.json:ro
+    command:
+      - start-dev
+      - --import-realm
+    ports:
+      - "9091:8080"  # Keycloak: Хост:9091 → Контейнер:8080
+    networks:
+      - individuals-net
+
+networks:
+  individuals-net:
+    driver: bridge
