@@ -4,7 +4,7 @@ info:
   description: Микросервис управления пользователями с транзакционными операциями
   version: 1.0.0
 servers:
-  - url: http://localhost:8080/api
+  - url: http://localhost:8081/api
     description: Локальная среда
   - url: https://person-service.prod/api
     description: Продакшн среда
