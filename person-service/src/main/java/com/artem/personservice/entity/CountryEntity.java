@@ -1,4 +1,4 @@
-package com.artem.personservice.domain;
+package com.artem.personservice.entity;
 
 
 import jakarta.persistence.*;

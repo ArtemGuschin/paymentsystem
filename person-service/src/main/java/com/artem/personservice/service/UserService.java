@@ -3,9 +3,9 @@ package com.artem.personservice.service;
 
 
 
-import com.artem.personservice.domain.AddressEntity;
-import com.artem.personservice.domain.IndividualEntity;
-import com.artem.personservice.domain.UserEntity;
+import com.artem.personservice.entity.AddressEntity;
+import com.artem.personservice.entity.IndividualEntity;
+import com.artem.personservice.entity.UserEntity;
 import com.artem.personservice.dto.*;
 import com.artem.personservice.exception.UserNotFoundException;
 import com.artem.personservice.repository.AddressRepository;

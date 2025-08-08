@@ -3,7 +3,7 @@ package com.artem.personservice.repository;
 
 
 
-import com.artem.personservice.domain.UserEntity;
+import com.artem.personservice.entity.UserEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;

@@ -1,8 +1,5 @@
 package com.artem.personservice.controller;
 
-
-
-
 import com.artem.personservice.dto.UserCreateRequest;
 import com.artem.personservice.dto.UserDto;
 import com.artem.personservice.dto.UserUpdateRequest;
@@ -16,7 +13,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
-public class UserController {
+public class UserControllerV1 {
     private final UserService userService;
 
     @PostMapping
