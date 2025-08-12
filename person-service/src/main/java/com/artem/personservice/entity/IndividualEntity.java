@@ -4,6 +4,7 @@ package com.artem.personservice.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.envers.Audited;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -12,6 +13,7 @@ import java.util.UUID;
 @Table(name = "individuals", schema = "person")
 @Getter
 @Setter
+@Audited
 public class IndividualEntity {
     @Id
     @GeneratedValue
