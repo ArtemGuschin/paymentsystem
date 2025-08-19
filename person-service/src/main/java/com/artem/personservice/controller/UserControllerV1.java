@@ -1,8 +1,9 @@
 package com.artem.personservice.controller;
 
-import com.artem.personservice.dto.UserCreateRequest;
-import com.artem.personservice.dto.UserDto;
-import com.artem.personservice.dto.UserUpdateRequest;
+
+import com.artem.model.UserCreateRequest;
+import com.artem.model.UserResponse;
+import com.artem.model.UserUpdateRequest;
 import com.artem.personservice.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -11,28 +12,28 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/users")
+@RequestMapping("/v1/users")
 @RequiredArgsConstructor
 public class UserControllerV1 {
     private final UserService userService;
 
     @PostMapping
-    public ResponseEntity<UserDto> createUser(@RequestBody UserCreateRequest request) {
+    public ResponseEntity createUser(@RequestBody UserCreateRequest request) {
         return ResponseEntity.ok(userService.createUser(request));
     }
 
     @GetMapping("/{userId}")
-    public ResponseEntity<UserDto> getUserById(@PathVariable UUID userId) {
+    public ResponseEntity<UserResponse> getUserById(@PathVariable UUID userId) {
         return ResponseEntity.ok(userService.getUserById(userId));
     }
 
     @GetMapping("/by-email/{email}")
-    public ResponseEntity<UserDto> getUserByEmail(@PathVariable String email) {
+    public ResponseEntity<UserResponse> getUserByEmail(@PathVariable String email) {
         return ResponseEntity.ok(userService.getUserByEmail(email));
     }
 
     @PutMapping("/{userId}")
-    public ResponseEntity<UserDto> updateUser(
+    public ResponseEntity<UserResponse> updateUser(
             @PathVariable UUID userId,
             @RequestBody UserUpdateRequest request
     ) {

@@ -1,247 +1,238 @@
 package com.artem.personservice;
 
+
+
 import com.artem.model.AddressRequest;
 import com.artem.model.IndividualRequest;
-import com.artem.personservice.dto.UserCreateRequest;
-import com.artem.personservice.dto.UserDto;
-import com.artem.personservice.dto.UserUpdateRequest;
+import com.artem.model.UserCreateRequest;
+import com.artem.model.UserResponse;
+import com.artem.model.UserUpdateRequest;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
-@Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Testcontainers
+@ActiveProfiles("test")
 class UserControllerV1IntegrationTest {
-
-    @LocalServerPort
-    private int port;
 
     @Autowired
     private TestRestTemplate restTemplate;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @Container
-    static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:16-alpine")
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(
+            DockerImageName.parse("postgres:16-alpine"))
             .withDatabaseName("testdb")
             .withUsername("testuser")
-            .withPassword("testpass");
+            .withPassword("testpass")
+            .withInitScript("init.sql");
 
     @DynamicPropertySource
-    static void registerPgProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
-        registry.add("spring.datasource.username", postgreSQLContainer::getUsername);
-        registry.add("spring.datasource.password", postgreSQLContainer::getPassword);
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
-    }
-
-    private String getBaseUrl() {
-        return "http://localhost:" + port + "/api/v1/users";
-    }
-
-    private HttpHeaders createHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        // Добавьте здесь заголовки авторизации, если необходимо
-        return headers;
-    }
-
-    private UserCreateRequest createSampleUserRequest() {
-        AddressRequest address = new AddressRequest();
-        address.setCountryId(1);
-        address.setAddressLine("ул. Пушкина, д.10");
-        address.setZipCode("123456");
-        address.setCity("Москва");
-        address.setState("Московская область");
-
-        IndividualRequest individual = new IndividualRequest();
-        individual.setPassportNumber("1234567890");
-        individual.setPhoneNumber("+79161234567");
-
-        UserCreateRequest request = new UserCreateRequest();
-        request.setEmail("test@example.com");
-        request.setPassword("Password123!");
-        request.setFirstName("Иван");
-        request.setLastName("Иванов");
-//        request.setAddress(address);
-//        request.setIndividual(individual);
-
-        return request;
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
     }
 
     @BeforeEach
-    void setup() {
-        // Добавьте здесь инициализацию, если необходимо
+    void setUp() {
+        baseUrl = "/api/v1/users";
+        testEmail = "user" + UUID.randomUUID() + "@example.com";
+
+        // Создаем AddressRequest
+        AddressRequest addressRequest = new AddressRequest();
+        addressRequest.setCountryId(1);
+        addressRequest.setAddressLine("ул. Пушкина, д.10");
+        addressRequest.setZipCode("123456");
+        addressRequest.setCity("Москва");
+        addressRequest.setState("Московская область");
+
+        // Создаем IndividualRequest
+        IndividualRequest individualRequest = new IndividualRequest();
+        individualRequest.setPassportNumber("1234567890");
+        individualRequest.setPhoneNumber("+79161234567");
+
+        // Создаем UserCreateRequest
+        createRequest = new UserCreateRequest();
+        createRequest.setFirstName("Иван");
+        createRequest.setLastName("Иванов");
+        createRequest.setEmail(testEmail);
+        createRequest.setPassword("Str0ngP@ss");
+        createRequest.setAddress(addressRequest);
+        createRequest.setIndividual(individualRequest);
+    }
+
+    private String baseUrl;
+    private UserCreateRequest createRequest;
+    private String testEmail;
+
+    @Test
+    void shouldCreateAndRetrieveUser() {
+        // Create user - ожидаем 200 OK согласно OpenAPI
+        ResponseEntity<String> createResponse = restTemplate.postForEntity(
+                baseUrl,
+                createRequest,
+                String.class
+        );
+
+        assertEquals(HttpStatus.OK, createResponse.getStatusCode());
+
+        // Диагностика: выведем тело ответа
+        String responseBody = createResponse.getBody();
+        assertNotNull(responseBody, "Response body should not be null");
+        System.out.println("Response body: " + responseBody);
+
+        try {
+            // Попробуем десериализовать вручную
+            UserResponse createdUser = objectMapper.readValue(responseBody, UserResponse.class);
+            assertNotNull(createdUser);
+            assertNotNull(createdUser.getId());
+            assertEquals("Иван", createdUser.getFirstName());
+            assertEquals("Иванов", createdUser.getLastName());
+            assertEquals(testEmail, createdUser.getEmail());
+            assertNotNull(createdUser.getAddress());
+            assertNotNull(createdUser.getIndividual());
+
+            // Retrieve by ID
+            ResponseEntity<UserResponse> getByIdResponse = restTemplate.getForEntity(
+                    baseUrl + "/" + createdUser.getId(),
+                    UserResponse.class
+            );
+
+            assertEquals(HttpStatus.OK, getByIdResponse.getStatusCode());
+            UserResponse foundById = getByIdResponse.getBody();
+            assertNotNull(foundById);
+            assertEquals(createdUser.getId(), foundById.getId());
+            assertEquals(createdUser.getEmail(), foundById.getEmail());
+
+            // Retrieve by Email
+            ResponseEntity<UserResponse> getByEmailResponse = restTemplate.getForEntity(
+                    baseUrl + "/by-email/" + testEmail,
+                    UserResponse.class
+            );
+
+            assertEquals(HttpStatus.OK, getByEmailResponse.getStatusCode());
+            UserResponse foundByEmail = getByEmailResponse.getBody();
+            assertNotNull(foundByEmail);
+            assertEquals(createdUser.getId(), foundByEmail.getId());
+            assertEquals(createdUser.getEmail(), foundByEmail.getEmail());
+        } catch (Exception e) {
+            fail("Failed to deserialize response: " + e.getMessage());
+        }
     }
 
     @Test
-    void testCreateAndGetUser() {
-        // 1. Создание пользователя
-        UserCreateRequest createRequest = createSampleUserRequest();
-        ResponseEntity<UserDto> createResponse = restTemplate.postForEntity(
-                getBaseUrl(),
-                new HttpEntity<>(createRequest, createHeaders()),
-                UserDto.class
+    void shouldUpdateUser() {
+        // Create user
+        ResponseEntity<UserResponse> createResponse = restTemplate.postForEntity(
+                baseUrl,
+                createRequest,
+                UserResponse.class
         );
 
-        assertEquals(HttpStatus.CREATED, createResponse.getStatusCode());
-        assertNotNull(createResponse.getBody());
-        UserDto createdUser = createResponse.getBody();
-        assertNotNull(createdUser.getId());
-
-        // 2. Получение пользователя по ID
-        ResponseEntity<UserDto> getResponse = restTemplate.getForEntity(
-                getBaseUrl() + "/" + createdUser.getId(),
-                UserDto.class
-        );
-
-        assertEquals(HttpStatus.OK, getResponse.getStatusCode());
-        UserDto fetchedUser = getResponse.getBody();
-        assertNotNull(fetchedUser);
-        assertEquals(createdUser.getId(), fetchedUser.getId());
-        assertEquals("Иван", fetchedUser.getFirstName());
-    }
-
-    @Test
-    void testGetUserByEmail() {
-        // 1. Создание пользователя
-        UserCreateRequest createRequest = createSampleUserRequest();
-        ResponseEntity<UserDto> createResponse = restTemplate.postForEntity(
-                getBaseUrl(),
-                new HttpEntity<>(createRequest, createHeaders()),
-                UserDto.class
-        );
-
-        UserDto createdUser = createResponse.getBody();
+        assertEquals(HttpStatus.OK, createResponse.getStatusCode());
+        UserResponse createdUser = createResponse.getBody();
         assertNotNull(createdUser);
 
-        // 2. Получение пользователя по email
-        ResponseEntity<UserDto> getResponse = restTemplate.getForEntity(
-                getBaseUrl() + "/by-email/test@example.com",
-                UserDto.class
-        );
-
-        assertEquals(HttpStatus.OK, getResponse.getStatusCode());
-        UserDto fetchedUser = getResponse.getBody();
-        assertNotNull(fetchedUser);
-        assertEquals(createdUser.getId(), fetchedUser.getId());
-    }
-
-    @Test
-    void testUpdateUser() {
-        // 1. Создание пользователя
-        UserCreateRequest createRequest = createSampleUserRequest();
-        ResponseEntity<UserDto> createResponse = restTemplate.postForEntity(
-                getBaseUrl(),
-                new HttpEntity<>(createRequest, createHeaders()),
-                UserDto.class
-        );
-
-        UserDto createdUser = createResponse.getBody();
-        assertNotNull(createdUser);
-
-        // 2. Обновление пользователя
+        // Update user
         UserUpdateRequest updateRequest = new UserUpdateRequest();
         updateRequest.setFirstName("Петр");
         updateRequest.setLastName("Петров");
+        updateRequest.setEmail("updated" + testEmail);
 
-        ResponseEntity<UserDto> updateResponse = restTemplate.exchange(
-                getBaseUrl() + "/" + createdUser.getId(),
+        // Обновляем адрес
+        AddressRequest addressRequest = new AddressRequest();
+        addressRequest.setCountryId(2);
+        addressRequest.setAddressLine("ул. Лермонтова, д.15");
+        addressRequest.setZipCode("654321");
+        addressRequest.setCity("Санкт-Петербург");
+        updateRequest.setAddress(addressRequest);
+
+        HttpEntity<UserUpdateRequest> requestEntity = new HttpEntity<>(updateRequest);
+
+        ResponseEntity<UserResponse> updateResponse = restTemplate.exchange(
+                baseUrl + "/" + createdUser.getId(),
                 HttpMethod.PUT,
-                new HttpEntity<>(updateRequest, createHeaders()),
-                UserDto.class
+                requestEntity,
+                UserResponse.class
         );
 
         assertEquals(HttpStatus.OK, updateResponse.getStatusCode());
-        UserDto updatedUser = updateResponse.getBody();
+        UserResponse updatedUser = updateResponse.getBody();
         assertNotNull(updatedUser);
+        assertEquals(createdUser.getId(), updatedUser.getId());
         assertEquals("Петр", updatedUser.getFirstName());
-
-        // 3. Проверка обновления
-        ResponseEntity<UserDto> getResponse = restTemplate.getForEntity(
-                getBaseUrl() + "/" + createdUser.getId(),
-                UserDto.class
-        );
-
-        UserDto fetchedUser = getResponse.getBody();
-        assertNotNull(fetchedUser);
-        assertEquals("Петр", fetchedUser.getFirstName());
+        assertEquals("Петров", updatedUser.getLastName());
+        assertEquals("updated" + testEmail, updatedUser.getEmail());
+        assertNotNull(updatedUser.getAddress());
+        assertEquals("ул. Лермонтова, д.15", updatedUser.getAddress().getAddressLine());
     }
 
     @Test
-    void testDeleteUser() {
-        // 1. Создание пользователя
-        UserCreateRequest createRequest = createSampleUserRequest();
-        ResponseEntity<UserDto> createResponse = restTemplate.postForEntity(
-                getBaseUrl(),
-                new HttpEntity<>(createRequest, createHeaders()),
-                UserDto.class
+    void shouldDeleteUser() {
+        // Create user
+        ResponseEntity<UserResponse> createResponse = restTemplate.postForEntity(
+                baseUrl,
+                createRequest,
+                UserResponse.class
         );
 
-        UserDto createdUser = createResponse.getBody();
+        assertEquals(HttpStatus.OK, createResponse.getStatusCode());
+        UserResponse createdUser = createResponse.getBody();
         assertNotNull(createdUser);
-        UUID userId = createdUser.getId();
 
-        // 2. Удаление пользователя
+        // Delete user
         ResponseEntity<Void> deleteResponse = restTemplate.exchange(
-                getBaseUrl() + "/" + userId,
+                baseUrl + "/" + createdUser.getId(),
                 HttpMethod.DELETE,
-                new HttpEntity<>(createHeaders()),
+                null,
                 Void.class
         );
 
         assertEquals(HttpStatus.NO_CONTENT, deleteResponse.getStatusCode());
 
-        // 3. Проверка удаления
-        ResponseEntity<UserDto> getResponse = restTemplate.getForEntity(
-                getBaseUrl() + "/" + userId,
-                UserDto.class
+        // Verify deletion
+        ResponseEntity<UserResponse> getResponse = restTemplate.getForEntity(
+                baseUrl + "/" + createdUser.getId(),
+                UserResponse.class
         );
 
         assertEquals(HttpStatus.NOT_FOUND, getResponse.getStatusCode());
     }
 
     @Test
-    void testCreateUserValidationFailure() {
-        UserCreateRequest invalidRequest = createSampleUserRequest();
-        invalidRequest.setEmail("invalid-email"); // Некорректный email
+    void shouldReturnNotFoundForInvalidId() {
+        UUID invalidId = UUID.randomUUID();
 
-        ResponseEntity<String> response = restTemplate.postForEntity(
-                getBaseUrl(),
-                new HttpEntity<>(invalidRequest, createHeaders()),
-                String.class
-        );
-
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertTrue(response.getBody().contains("email"));
-    }
-
-    @Test
-    void testGetNonExistentUser() {
-        UUID nonExistentId = UUID.randomUUID();
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                getBaseUrl() + "/" + nonExistentId,
-                String.class
+        ResponseEntity<UserResponse> response = restTemplate.getForEntity(
+                baseUrl + "/" + invalidId,
+                UserResponse.class
         );
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 }
+

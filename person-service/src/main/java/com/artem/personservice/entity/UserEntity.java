@@ -4,9 +4,12 @@ package com.artem.personservice.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.envers.Audited;
 
-import java.time.LocalDateTime;
+
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
@@ -20,12 +23,13 @@ public class UserEntity {
     private UUID id;
     private String secretKey;
     private String email;
-
+    @CreationTimestamp
     @Column(nullable = false)
-    private LocalDateTime created = LocalDateTime.now();
+    private OffsetDateTime created = OffsetDateTime.now();
 
+    @UpdateTimestamp
     @Column(nullable = false)
-    private LocalDateTime updated = LocalDateTime.now();
+    private OffsetDateTime updated = OffsetDateTime.now();
 
     private String firstName;
     private String lastName;
@@ -40,6 +44,6 @@ public class UserEntity {
 
     @PreUpdate
     public void preUpdate() {
-        this.updated = LocalDateTime.now();
+        this.updated = OffsetDateTime.now();
     }
 }

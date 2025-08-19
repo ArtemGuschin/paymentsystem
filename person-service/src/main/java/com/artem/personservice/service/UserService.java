@@ -2,19 +2,18 @@ package com.artem.personservice.service;
 
 
 
-
+import com.artem.model.*;
 import com.artem.personservice.entity.AddressEntity;
 import com.artem.personservice.entity.IndividualEntity;
 import com.artem.personservice.entity.UserEntity;
-import com.artem.personservice.dto.*;
 import com.artem.personservice.exception.UserNotFoundException;
 import com.artem.personservice.repository.AddressRepository;
 import com.artem.personservice.repository.CountryRepository;
 import com.artem.personservice.repository.IndividualRepository;
 import com.artem.personservice.repository.UserRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -28,91 +27,51 @@ public class UserService {
     private final CountryRepository countryRepository;
 
     @Transactional
-    public UserDto createUser(UserCreateRequest request) {
+    public UserResponse createUser(UserCreateRequest request) {
         // Создание адреса
-        AddressEntity address = new AddressEntity();
-        address.setAddress(request.getAddress().getAddress());
-        address.setZipCode(request.getAddress().getZipCode());
-        address.setCity(request.getAddress().getCity());
-        address.setState(request.getAddress().getState());
-        address.setArchived(LocalDateTime.now());
-
-        // Установка страны
-        if (request.getAddress().getCountryId() != null) {
-            countryRepository.findById(request.getAddress().getCountryId())
-                    .ifPresent(address::setCountry);
-        }
-
+        AddressEntity address = createAddress(request.getAddress());
         address = addressRepository.save(address);
 
-        // Создание пользователя
-        UserEntity user = new UserEntity();
-        user.setEmail(request.getEmail());
-        user.setSecretKey(request.getPassword());
-        user.setFirstName(request.getFirstName());
-        user.setLastName(request.getLastName());
-        user.setFilled(true); // Устанавливаем флаг
-        user.setAddress(address);
+        UserEntity user = createUserEntity(request, address);
         user = userRepository.save(user);
 
-        // Создание индивидуальных данных
-        IndividualEntity individual = new IndividualEntity();
-        individual.setPassportNumber(request.getIndividual().getPassportNumber());
-        individual.setPhoneNumber(request.getIndividual().getPhoneNumber());
-        individual.setUser(user);
+        IndividualEntity individual = createIndividualEntity(request.getIndividual(), user);
         individualRepository.save(individual);
 
         return convertToDto(user);
     }
 
-    public UserDto getUserById(UUID userId) {
+    @Transactional(readOnly = true)
+    public UserResponse getUserById(UUID userId) {
         return userRepository.findByIdWithDetails(userId)
                 .map(this::convertToDto)
-                .orElseThrow(() -> new UserNotFoundException(userId));
+                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
     }
 
-    public UserDto getUserByEmail(String email) {
+    @Transactional(readOnly = true)
+    public UserResponse getUserByEmail(String email) {
         return userRepository.findByEmailWithDetails(email)
                 .map(this::convertToDto)
-                .orElseThrow(() -> new UserNotFoundException(email));
+                .orElseThrow(() -> new UserNotFoundException("User not found with email: " + email));
     }
 
     @Transactional
-    public UserDto updateUser(UUID userId, UserUpdateRequest request) {
+    public UserResponse updateUser(UUID userId, UserUpdateRequest request) {
         UserEntity user = userRepository.findByIdWithDetails(userId)
-                .orElseThrow(() -> new UserNotFoundException(userId));
+                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
 
         // Обновление пользователя
-        if (request.getEmail() != null) user.setEmail(request.getEmail());
-        if (request.getFirstName() != null) user.setFirstName(request.getFirstName());
-        if (request.getLastName() != null) user.setLastName(request.getLastName());
+        updateUserEntity(user, request);
 
         // Обновление адреса
         if (request.getAddress() != null && user.getAddress() != null) {
-            AddressEntity address = user.getAddress();
-            if (request.getAddress().getAddress() != null) address.setAddress(request.getAddress().getAddress());
-            if (request.getAddress().getZipCode() != null) address.setZipCode(request.getAddress().getZipCode());
-            if (request.getAddress().getCity() != null) address.setCity(request.getAddress().getCity());
-            if (request.getAddress().getState() != null) address.setState(request.getAddress().getState());
-
-            // Обновление страны
-            if (request.getAddress().getCountryId() != null) {
-                countryRepository.findById(request.getAddress().getCountryId())
-                        .ifPresent(address::setCountry);
-            }
+            updateAddressEntity(user.getAddress(), request.getAddress());
         }
 
         // Обновление индивидуальных данных
         if (request.getIndividual() != null && user.getIndividual() != null) {
-            IndividualEntity individual = user.getIndividual();
-            if (request.getIndividual().getPassportNumber() != null)
-                individual.setPassportNumber(request.getIndividual().getPassportNumber());
-            if (request.getIndividual().getPhoneNumber() != null)
-                individual.setPhoneNumber(request.getIndividual().getPhoneNumber());
+            updateIndividualEntity(user.getIndividual(), request.getIndividual());
         }
-
-        // Обновление флага заполненности
-        user.setFilled(true); // Или другая логика обновления
 
         userRepository.save(user);
         return convertToDto(user);
@@ -121,50 +80,125 @@ public class UserService {
     @Transactional
     public void deleteUser(UUID userId) {
         UserEntity user = userRepository.findByIdWithDetails(userId)
-                .orElseThrow(() -> new UserNotFoundException(userId));
+                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
 
         // Удаление в правильном порядке
-        if (user.getIndividual() != null) individualRepository.delete(user.getIndividual());
-        userRepository.delete(user);
-        if (user.getAddress() != null) addressRepository.delete(user.getAddress());
-    }
+        if (user.getIndividual() != null) {
+            individualRepository.delete(user.getIndividual());
+        }
 
-    private UserDto convertToDto(UserEntity user) {
-        UserDto dto = new UserDto();
-        dto.setId(user.getId());
-        dto.setEmail(user.getEmail());
-        dto.setCreated(user.getCreated());
-        dto.setUpdated(user.getUpdated());
-        dto.setFirstName(user.getFirstName());
-        dto.setLastName(user.getLastName());
-        dto.setFilled(user.isFilled()); // Исправлено
+        userRepository.delete(user);
 
         if (user.getAddress() != null) {
-            AddressDto addressDto = new AddressDto();
-            addressDto.setId(user.getAddress().getId());
-            addressDto.setAddress(user.getAddress().getAddress());
-            addressDto.setZipCode(user.getAddress().getZipCode());
-            addressDto.setCity(user.getAddress().getCity());
-            addressDto.setState(user.getAddress().getState());
-            if (user.getAddress().getCountry() != null) {
-                addressDto.setCountryId(user.getAddress().getCountry().getId());
-            }
-            dto.setAddress(addressDto);
+            addressRepository.delete(user.getAddress());
+        }
+    }
+
+    private AddressEntity createAddress(AddressRequest addressRequest) {
+        AddressEntity address = new AddressEntity();
+        address.setAddress(addressRequest.getAddressLine());
+        address.setZipCode(addressRequest.getZipCode());
+        address.setCity(addressRequest.getCity());
+        address.setState(addressRequest.getState());
+        address.setArchived(LocalDateTime.now());
+
+        // Установка страны
+        if (addressRequest.getCountryId() != null) {
+            countryRepository.findById(addressRequest.getCountryId())
+                    .ifPresent(address::setCountry);
+        }
+
+        return address;
+    }
+
+    private UserEntity createUserEntity(UserCreateRequest request, AddressEntity address) {
+        UserEntity user = new UserEntity();
+        user.setEmail(request.getEmail());
+        user.setSecretKey(request.getPassword());
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setFilled(true);
+        user.setAddress(address);
+        return user;
+    }
+
+    private IndividualEntity createIndividualEntity(IndividualRequest individualRequest, UserEntity user) {
+        IndividualEntity individual = new IndividualEntity();
+        individual.setPassportNumber(individualRequest.getPassportNumber());
+        individual.setPhoneNumber(individualRequest.getPhoneNumber());
+        individual.setUser(user);
+        return individual;
+    }
+
+    private void updateUserEntity(UserEntity user, UserUpdateRequest request) {
+        if (request.getEmail() != null) user.setEmail(request.getEmail());
+        if (request.getFirstName() != null) user.setFirstName(request.getFirstName());
+        if (request.getLastName() != null) user.setLastName(request.getLastName());
+        user.setFilled(true);
+    }
+
+    private void updateAddressEntity(AddressEntity address, AddressRequest addressRequest) {
+        if (addressRequest.getAddressLine() != null) address.setAddress(addressRequest.getAddressLine());
+        if (addressRequest.getZipCode() != null) address.setZipCode(addressRequest.getZipCode());
+        if (addressRequest.getCity() != null) address.setCity(addressRequest.getCity());
+        if (addressRequest.getState() != null) address.setState(addressRequest.getState());
+
+        // Обновление страны
+        if (addressRequest.getCountryId() != null) {
+            countryRepository.findById(addressRequest.getCountryId())
+                    .ifPresent(address::setCountry);
+        }
+    }
+
+    private void updateIndividualEntity(IndividualEntity individual, IndividualRequest individualRequest) {
+        if (individualRequest.getPassportNumber() != null)
+            individual.setPassportNumber(individualRequest.getPassportNumber());
+        if (individualRequest.getPhoneNumber() != null)
+            individual.setPhoneNumber(individualRequest.getPhoneNumber());
+    }
+
+    private UserResponse convertToDto(UserEntity user) {
+        UserResponse dto = new UserResponse();
+        dto.setId(user.getId());
+        dto.setEmail(user.getEmail());
+        dto.setCreatedAt(user.getCreated());
+        dto.setUpdatedAt(user.getUpdated());
+        dto.setFirstName(user.getFirstName());
+        dto.setLastName(user.getLastName());
+
+        if (user.getAddress() != null) {
+            dto.setAddress(convertAddressToDto(user.getAddress()));
         }
 
         if (user.getIndividual() != null) {
-            IndividualDto individualDto = new IndividualDto();
-            individualDto.setId(user.getIndividual().getId());
-            individualDto.setPassportNumber(user.getIndividual().getPassportNumber());
-            individualDto.setPhoneNumber(user.getIndividual().getPhoneNumber());
-            dto.setIndividual(individualDto);
+            dto.setIndividual(convertIndividualToDto(user.getIndividual()));
         }
 
         return dto;
     }
+
+    private AddressResponse convertAddressToDto(AddressEntity address) {
+        AddressResponse addressDto = new AddressResponse();
+        addressDto.setId(address.getId());
+        addressDto.setAddressLine(address.getAddress());
+        addressDto.setZipCode(address.getZipCode());
+        addressDto.setCity(address.getCity());
+        addressDto.setState(address.getState());
+        if (address.getCountry() != null) {
+            addressDto.setCountryId(address.getCountry().getId());
+        }
+
+        return addressDto;
+    }
+
+    private IndividualResponse convertIndividualToDto(IndividualEntity individual) {
+        IndividualResponse individualDto = new IndividualResponse();
+        individualDto.setId(individual.getId());
+        individualDto.setPassportNumber(individual.getPassportNumber());
+        individualDto.setPhoneNumber(individual.getPhoneNumber());
+        individualDto.setStatus(individual.getStatus());
+
+        return individualDto;
+    }
 }
-
-
-
-
 
