@@ -91,6 +91,7 @@ api:
 logging:
   level:
     root: INFO
+    com.artem.person service.service: DEBUG
     org.springframework: INFO
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql: TRACE

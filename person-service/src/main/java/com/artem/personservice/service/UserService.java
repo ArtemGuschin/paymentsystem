@@ -12,6 +12,7 @@ import com.artem.personservice.repository.CountryRepository;
 import com.artem.personservice.repository.IndividualRepository;
 import com.artem.personservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserService {
     private final UserRepository userRepository;
     private final AddressRepository addressRepository;
@@ -28,7 +30,6 @@ public class UserService {
 
     @Transactional
     public UserResponse createUser(UserCreateRequest request) {
-        // Создание адреса
         AddressEntity address = createAddress(request.getAddress());
         address = addressRepository.save(address);
 
@@ -36,7 +37,12 @@ public class UserService {
         user = userRepository.save(user);
 
         IndividualEntity individual = createIndividualEntity(request.getIndividual(), user);
+        individual.setUser(user); // Установите связь
         individualRepository.save(individual);
+
+        // Обновите пользователя с individual
+        user.setIndividual(individual);
+        userRepository.save(user);
 
         return convertToDto(user);
     }
@@ -96,7 +102,7 @@ public class UserService {
 
     private AddressEntity createAddress(AddressRequest addressRequest) {
         AddressEntity address = new AddressEntity();
-        address.setAddress(addressRequest.getAddressLine());
+        address.setAddress(addressRequest.getAddressLine()); // Используем getAddress(), не getAddressLine()
         address.setZipCode(addressRequest.getZipCode());
         address.setCity(addressRequest.getCity());
         address.setState(addressRequest.getState());
@@ -105,7 +111,10 @@ public class UserService {
         // Установка страны
         if (addressRequest.getCountryId() != null) {
             countryRepository.findById(addressRequest.getCountryId())
-                    .ifPresent(address::setCountry);
+                    .ifPresentOrElse(
+                            address::setCountry,
+                            () -> log.warn("Country with id {} not found", addressRequest.getCountryId())
+                    );
         }
 
         return address;

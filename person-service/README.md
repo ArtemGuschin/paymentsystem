@@ -9,7 +9,7 @@
    "lastName": "Doe",
    "address": {
    "countryId": 1,
-   "address": "123 Main St",
+   "addressLine": "123 Main St",
    "zipCode": "12345",
    "city": "New York",
    "state": "NY"
