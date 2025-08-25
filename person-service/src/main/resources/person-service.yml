@@ -4,7 +4,7 @@ info:
   description: Микросервис управления пользователями с транзакционными операциями
   version: 1.0.0
 servers:
-  - url: http://localhost:8080/api
+  - url: http://localhost:8081/api
     description: Локальная среда
   - url: https://person-service.prod/api
     description: Продакшн среда
@@ -281,19 +281,27 @@ components:
           example: Московская область
 
     AddressResponse:
-      allOf:
-        - $ref: '#/components/schemas/AddressRequest'
-        - type: object
-          properties:
-            id:
-              type: string
-              format: uuid
-            createdAt:
-              type: string
-              format: date-time
-            updatedAt:
-              type: string
-              format: date-time
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        countryId:
+          type: integer
+        addressLine:
+          type: string
+        zipCode:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
 
     IndividualRequest:
       type: object
@@ -309,19 +317,21 @@ components:
           example: '+79161234567'
 
     IndividualResponse:
-      allOf:
-        - $ref: '#/components/schemas/IndividualRequest'
-        - type: object
-          properties:
-            id:
-              type: string
-              format: uuid
-            verifiedAt:
-              type: string
-              format: date-time
-            status:
-              type: string
-              example: ACTIVE
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        passportNumber:
+          type: string
+        phoneNumber:
+          type: string
+        verifiedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          example: ACTIVE
 
     AuditEntry:
       type: object
@@ -361,12 +371,12 @@ components:
         path:
           type: string
 
-securitySchemes:
-  ApiKeyAuth:
-    type: apiKey
-    in: header
-    name: X-API-KEY
-    description: API Key для межсервисного взаимодействия
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+      description: API Key для межсервисного взаимодействия
 
 tags:
   - name: Users
