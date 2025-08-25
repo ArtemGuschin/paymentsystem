@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Service
@@ -170,7 +171,7 @@ public class UserService {
         UserResponse dto = new UserResponse();
         dto.setId(user.getId());
         dto.setEmail(user.getEmail());
-        dto.setCreatedAt(user.getCreated());
+        dto.setCreatedAt(OffsetDateTime.from(user.getCreated()));
         dto.setUpdatedAt(user.getUpdated());
         dto.setFirstName(user.getFirstName());
         dto.setLastName(user.getLastName());

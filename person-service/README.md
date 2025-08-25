@@ -1,6 +1,6 @@
 Для тестирования в postman: 
 1) Создание пользователя :
-   curl -X POST 'http://localhost:8081/api/v1/users' \
+   curl -X POST 'http://localhost:8091/api/v1/users' \
    -H 'Content-Type: application/json' \
    -d '{
    "email": "test@example.com",
@@ -21,15 +21,15 @@
    }'
 2) Получение пользователя по ID
 # Замените {userId} на реальный UUID из ответа на создание
-curl -X GET 'http://localhost:8081/api/v1/users/{userId}' \
+curl -X GET 'http://localhost:8091/api/v1/users/{userId}' \
 -H 'Accept: application/json'
 
 3) Получение пользователя по email
-   curl -X GET 'http://localhost:8081/api/v1/users/by-email/test@example.com' \
+   curl -X GET 'http://localhost:8091/api/v1/users/by-email/test@example.com' \
    -H 'Accept: application/json'
 4) Обновление пользователя
 # Обновляем имя и город в адресе
-curl -X PUT 'http://localhost:8081/api/v1/users/{userId}' \
+curl -X PUT 'http://localhost:8091/api/v1/users/{userId}' \
 -H 'Content-Type: application/json' \
 -d '{
 "firstName": "John Updated",
@@ -38,7 +38,7 @@ curl -X PUT 'http://localhost:8081/api/v1/users/{userId}' \
 }
 }'
 5) Удаление пользователя
-   curl -X DELETE 'http://localhost:8081/api/v1/users/{userId}'
+   curl -X DELETE 'http://localhost:8091/api/v1/users/{userId}'
 
 
 

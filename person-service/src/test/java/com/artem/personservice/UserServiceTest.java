@@ -1,9 +1,8 @@
 package com.artem.personservice;
 
-
-
 import com.artem.model.*;
 import com.artem.personservice.entity.AddressEntity;
+import com.artem.personservice.entity.CountryEntity;
 import com.artem.personservice.entity.IndividualEntity;
 import com.artem.personservice.entity.UserEntity;
 import com.artem.personservice.exception.UserNotFoundException;
@@ -19,6 +18,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -54,7 +55,9 @@ class UserServiceTest {
         AddressEntity addressEntity = createAddressEntity();
         UserEntity userEntity = createUserEntity(addressEntity);
         IndividualEntity individualEntity = createIndividualEntity(userEntity);
+        CountryEntity countryEntity = createCountryEntity();
 
+        when(countryRepository.findById(anyInt())).thenReturn(Optional.of(countryEntity));
         when(addressRepository.save(any(AddressEntity.class))).thenReturn(addressEntity);
         when(userRepository.save(any(UserEntity.class))).thenReturn(userEntity);
         when(individualRepository.save(any(IndividualEntity.class))).thenReturn(individualEntity);
@@ -67,9 +70,12 @@ class UserServiceTest {
         assertEquals(TEST_EMAIL, response.getEmail());
         assertEquals("John", response.getFirstName());
         assertEquals("Doe", response.getLastName());
+        assertNotNull(response.getAddress());
+        assertNotNull(response.getIndividual());
 
+        verify(countryRepository).findById(anyInt());
         verify(addressRepository).save(any(AddressEntity.class));
-        verify(userRepository).save(any(UserEntity.class));
+        verify(userRepository, times(2)).save(any(UserEntity.class));
         verify(individualRepository).save(any(IndividualEntity.class));
     }
 
@@ -86,6 +92,9 @@ class UserServiceTest {
         // Assert
         assertNotNull(response);
         assertEquals(TEST_UUID, response.getId());
+        assertEquals(TEST_EMAIL, response.getEmail());
+        assertNotNull(response.getAddress());
+        assertNotNull(response.getIndividual());
         verify(userRepository).findByIdWithDetails(TEST_UUID);
     }
 
@@ -98,6 +107,36 @@ class UserServiceTest {
         // Act & Assert
         assertThrows(UserNotFoundException.class, () ->
                 userService.getUserById(TEST_UUID));
+        verify(userRepository).findByIdWithDetails(TEST_UUID);
+    }
+
+    @Test
+    void getUserByEmail_ShouldReturnUserResponse() {
+        // Arrange
+        UserEntity userEntity = createUserEntity(createAddressEntity());
+        when(userRepository.findByEmailWithDetails(TEST_EMAIL))
+                .thenReturn(Optional.of(userEntity));
+
+        // Act
+        UserResponse response = userService.getUserByEmail(TEST_EMAIL);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(TEST_UUID, response.getId());
+        assertEquals(TEST_EMAIL, response.getEmail());
+        verify(userRepository).findByEmailWithDetails(TEST_EMAIL);
+    }
+
+    @Test
+    void getUserByEmail_ShouldThrowUserNotFoundException() {
+        // Arrange
+        when(userRepository.findByEmailWithDetails(TEST_EMAIL))
+                .thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(UserNotFoundException.class, () ->
+                userService.getUserByEmail(TEST_EMAIL));
+        verify(userRepository).findByEmailWithDetails(TEST_EMAIL);
     }
 
     @Test
@@ -105,11 +144,12 @@ class UserServiceTest {
         // Arrange
         UserEntity existingUser = createUserEntity(createAddressEntity());
         UserUpdateRequest updateRequest = createUpdateRequest();
+        CountryEntity countryEntity = createCountryEntity();
 
         when(userRepository.findByIdWithDetails(TEST_UUID))
                 .thenReturn(Optional.of(existingUser));
-        when(userRepository.save(any(UserEntity.class)))
-                .thenReturn(existingUser);
+        when(countryRepository.findById(anyInt())).thenReturn(Optional.of(countryEntity));
+        when(userRepository.save(any(UserEntity.class))).thenReturn(existingUser);
 
         // Act
         UserResponse response = userService.updateUser(TEST_UUID, updateRequest);
@@ -118,23 +158,82 @@ class UserServiceTest {
         assertNotNull(response);
         assertEquals("updated@example.com", response.getEmail());
         assertEquals("Updated", response.getFirstName());
+        assertEquals("Name", response.getLastName());
+        verify(userRepository).findByIdWithDetails(TEST_UUID);
         verify(userRepository).save(existingUser);
+        verify(countryRepository).findById(anyInt());
     }
 
     @Test
     void deleteUser_ShouldDeleteAllEntities() {
         // Arrange
-        UserEntity userEntity = createUserEntity(createAddressEntity());
+        AddressEntity addressEntity = createAddressEntity();
+        UserEntity userEntity = createUserEntity(addressEntity);
+
         when(userRepository.findByIdWithDetails(TEST_UUID))
                 .thenReturn(Optional.of(userEntity));
+        doNothing().when(individualRepository).delete(any(IndividualEntity.class));
+        doNothing().when(userRepository).delete(any(UserEntity.class));
+        doNothing().when(addressRepository).delete(any(AddressEntity.class));
 
         // Act
         userService.deleteUser(TEST_UUID);
 
         // Assert
+        verify(userRepository).findByIdWithDetails(TEST_UUID);
         verify(individualRepository).delete(userEntity.getIndividual());
         verify(userRepository).delete(userEntity);
         verify(addressRepository).delete(userEntity.getAddress());
+    }
+
+    @Test
+    void deleteUser_ShouldHandleMissingIndividual() {
+        // Arrange
+        AddressEntity addressEntity = createAddressEntity();
+        UserEntity userEntity = createUserEntity(addressEntity);
+        userEntity.setIndividual(null);
+
+        when(userRepository.findByIdWithDetails(TEST_UUID))
+                .thenReturn(Optional.of(userEntity));
+        doNothing().when(userRepository).delete(any(UserEntity.class));
+        doNothing().when(addressRepository).delete(any(AddressEntity.class));
+
+        // Act
+        userService.deleteUser(TEST_UUID);
+
+        // Assert
+        verify(userRepository).findByIdWithDetails(TEST_UUID);
+        verify(individualRepository, never()).delete(any(IndividualEntity.class));
+        verify(userRepository).delete(userEntity);
+        verify(addressRepository).delete(userEntity.getAddress());
+    }
+
+    @Test
+    void deleteUser_ShouldHandleMissingAddress() {
+        // Arrange
+        UserEntity userEntity = createUserEntity(null);
+
+        when(userRepository.findByIdWithDetails(TEST_UUID))
+                .thenReturn(Optional.of(userEntity));
+        doNothing().when(individualRepository).delete(any(IndividualEntity.class));
+        doNothing().when(userRepository).delete(any(UserEntity.class));
+
+        // Act
+        userService.deleteUser(TEST_UUID);
+
+        // Assert
+        verify(userRepository).findByIdWithDetails(TEST_UUID);
+        verify(individualRepository).delete(userEntity.getIndividual());
+        verify(userRepository).delete(userEntity);
+        verify(addressRepository, never()).delete(any(AddressEntity.class));
+    }
+
+    private CountryEntity createCountryEntity() {
+        CountryEntity country = new CountryEntity();
+        country.setId(1);
+        country.setName("Test Country");
+//        country.setCode("TC");
+        return country;
     }
 
     private UserCreateRequest createUserRequest() {
@@ -194,6 +293,8 @@ class UserServiceTest {
         user.setLastName("Doe");
         user.setAddress(address);
         user.setIndividual(createIndividualEntity(user));
+        user.setCreated(OffsetDateTime.now());
+        user.setUpdated(OffsetDateTime.now());
         return user;
     }
 
@@ -203,6 +304,7 @@ class UserServiceTest {
         individual.setPassportNumber("AB123456");
         individual.setPhoneNumber("+1234567890");
         individual.setUser(user);
+        individual.setStatus("ACTIVE");
         return individual;
     }
 }
