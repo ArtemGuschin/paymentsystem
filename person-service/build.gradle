@@ -2,6 +2,8 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.5.3'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.openapi.generator' version '7.5.0'
+    id 'maven-publish'
 }
 
 group = 'com.artem'
@@ -15,31 +17,115 @@ java {
 
 repositories {
     mavenCentral()
+    maven {
+        url "http://localhost:8081/repository/maven-releases/"
+        allowInsecureProtocol = true
+    }
+    maven {
+        url "http://localhost:8081/repository/maven-snapshots/"
+        allowInsecureProtocol = true
+    }
 }
+
+// Задача для создания JAR с исходниками
+tasks.register('sourcesJar', Jar) {
+    from sourceSets.main.allSource
+    archiveClassifier = 'sources'
+    // Добавляем зависимость от openApiGenerate
+    dependsOn tasks.named('openApiGenerate')
+}
+
+// Задача для создания JAR с документацией
+tasks.register('javadocJar', Jar) {
+    from javadoc.destinationDir
+    archiveClassifier = 'javadoc'
+    dependsOn javadoc
+}
+
+// Конфигурация публикации
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            artifact sourcesJar
+            artifact javadocJar
+
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            def releasesRepoUrl = "http://localhost:8081/repository/maven-releases/"
+            def snapshotsRepoUrl = "http://localhost:8081/repository/maven-snapshots/"
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+
+            credentials {
+                username = nexusUsername
+                password = nexusPassword
+            }
+            allowInsecureProtocol = true
+        }
+    }
+}
+
+openApiGenerate {
+    generatorName = 'java'
+    inputSpec = "$projectDir/src/main/resources/person-service.yml"
+    outputDir = "$buildDir/generated"
+    apiPackage = 'com.artem.api'
+    modelPackage = 'com.artem.model'
+    configOptions = [
+            dateLibrary: "java8",
+            openApiNullable: "false",
+            useJakartaEe: "true",
+            library: "resttemplate"
+    ]
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java', "$buildDir/generated/src/main/java"]
+        }
+    }
+}
+
+compileJava.dependsOn tasks.openApiGenerate
 
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'io.github.openfeign:feign-micrometer:13.6'
-    implementation 'org.flywaydb:flyway-core'
-    implementation 'org.flywaydb:flyway-database-postgresql'
-    implementation 'org.hibernate.orm:hibernate-envers:6.2.6.Final'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.data:spring-data-envers'
+    implementation 'org.openapitools:jackson-databind-nullable:0.2.6'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    implementation 'com.fasterxml.uuid:java-uuid-generator:5.0.0'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+
     compileOnly 'org.projectlombok:lombok'
-    compileOnly 'org.openapitools:openapi-generator-maven-plugin:7.12.0'
-    developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
-    runtimeOnly 'io.micrometer:micrometer-registry-otlp'
-    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
     runtimeOnly 'org.postgresql:postgresql'
     annotationProcessor 'org.projectlombok:lombok'
+
     testImplementation 'org.mockito:mockito-core:5.12.0'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:postgresql'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+tasks.named('javadoc') {
+    finalizedBy tasks.named('javadocJar')
 }
