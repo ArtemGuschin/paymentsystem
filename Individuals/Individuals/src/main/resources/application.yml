@@ -1,5 +1,5 @@
 server:
-  port: 9092
+  port: 9091
 
 keycloak:
   server-url: http://localhost:9091  # Имя сервиса в Docker
@@ -10,11 +10,15 @@ keycloak:
   admin-password: admin  # Пароль администратора Keycloak
 
 spring:
-    security:
-      oauth2:
-        resourceserver:
-          jwt:
-            jwk-set-uri: http://localhost:9091/realms/individuals-realm/protocol/openid-connect/certs
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:9091/realms/individuals-realm/protocol/openid-connect/certs
+
+  cloud:
+    compatibility-verifier:
+      enabled: false
 
 logging:
   level:
