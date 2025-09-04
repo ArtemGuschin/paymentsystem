@@ -3,7 +3,7 @@ package com.artem.individuals.dto.request;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 
-//@Data
+
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter

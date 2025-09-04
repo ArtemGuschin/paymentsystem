@@ -4,7 +4,6 @@ import com.artem.individuals.dto.request.AuthRequest;
 import com.artem.individuals.dto.request.RegistrationRequest;
 import com.artem.individuals.dto.response.TokenResponse;
 import com.artem.individuals.dto.response.UserResponse;
-import com.artem.individuals.client.KeycloakIntegrationClient;
 import com.artem.individuals.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +18,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/v1/auth")
 @RequiredArgsConstructor
-public class AuthController {
+public class AuthControllerV1 {
 
     private final UserService userService;
     @PostMapping("/registration")

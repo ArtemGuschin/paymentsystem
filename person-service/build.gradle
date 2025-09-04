@@ -27,54 +27,97 @@ repositories {
     }
 }
 
-// Задача для создания JAR с исходниками
-tasks.register('sourcesJar', Jar) {
-    from sourceSets.main.allSource
-    archiveClassifier = 'sources'
-    // Добавляем зависимость от openApiGenerate
-    dependsOn tasks.named('openApiGenerate')
+// Задачи для создания OpenAPI артефактов
+task openApiJar(type: Jar) {
+    archiveBaseName = 'person-service-openapi'
+    from fileTree(dir: 'build/generated/src/main/java', includes: ['com/artem/**'])
+    from sourceSets.main.output
+    include 'com/artem/**'
 }
 
-// Задача для создания JAR с документацией
-tasks.register('javadocJar', Jar) {
-    from javadoc.destinationDir
-    archiveClassifier = 'javadoc'
-    dependsOn javadoc
+task openApiSourcesJar(type: Jar) {
+    archiveBaseName = 'person-service-openapi'
+    archiveClassifier.set('sources')
+    from fileTree(dir: 'build/generated/src/main/java', includes: ['com/artem/**'])
+}
+
+task openApiJavadoc(type: Javadoc) {
+    source = fileTree(dir: 'build/generated/src/main/java', includes: ['com/artem/**'])
+    classpath = sourceSets.main.compileClasspath
+    destinationDir = file("$buildDir/docs/openapi-javadoc")
+}
+
+task openApiJavadocJar(type: Jar, dependsOn: openApiJavadoc) {
+    archiveBaseName = 'person-service-openapi'
+    archiveClassifier.set('javadoc')
+    from openApiJavadoc.destinationDir
 }
 
 // Конфигурация публикации
 publishing {
     publications {
-        mavenJava(MavenPublication) {
-            from components.java
-            artifact sourcesJar
-            artifact javadocJar
+        openApi(MavenPublication) {
+            groupId = 'com.artem'
+            artifactId = 'person-service-openapi'
+            version = '1.0.0'
 
-            versionMapping {
-                usage('java-api') {
-                    fromResolutionOf('runtimeClasspath')
+            artifact openApiJar
+            artifact openApiSourcesJar
+            artifact openApiJavadocJar
+
+            pom {
+                name = 'Person Service OpenAPI Components'
+                description = 'Only OpenAPI generated components for Person Service'
+                url = 'http://example.com'
+
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
                 }
-                usage('java-runtime') {
-                    fromResolutionResult()
+
+                developers {
+                    developer {
+                        id = 'artem'
+                        name = 'Artem'
+                        email = 'artem@example.com'
+                    }
+                }
+
+                scm {
+                    connection = 'scm:git:https://github.com/your-repo/person-service.git'
+                    developerConnection = 'scm:git:https://github.com/your-repo/person-service.git'
+                    url = 'https://github.com/your-repo/person-service'
                 }
             }
         }
     }
+
     repositories {
         maven {
             def releasesRepoUrl = "http://localhost:8081/repository/maven-releases/"
             def snapshotsRepoUrl = "http://localhost:8081/repository/maven-snapshots/"
             url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            allowInsecureProtocol = true
 
             credentials {
-                username = nexusUsername
-                password = nexusPassword
+                username = 'admin'
+                password = 'Artem882_javaboss'
             }
-            allowInsecureProtocol = true
         }
     }
 }
 
+// Зависимости между задачами
+openApiJavadoc.dependsOn tasks.named('openApiGenerate')
+openApiSourcesJar.dependsOn tasks.named('openApiGenerate')
+openApiJar.dependsOn tasks.named('openApiGenerate')
+tasks.named('openApiJavadoc') {
+    finalizedBy tasks.named('openApiJavadocJar')
+}
+
+// Конфигурация OpenAPI генерации
 openApiGenerate {
     generatorName = 'java'
     inputSpec = "$projectDir/src/main/resources/person-service.yml"
@@ -124,8 +167,4 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
-}
-
-tasks.named('javadoc') {
-    finalizedBy tasks.named('javadocJar')
 }
