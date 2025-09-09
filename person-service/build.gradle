@@ -59,7 +59,7 @@ publishing {
         openApi(MavenPublication) {
             groupId = 'com.artem'
             artifactId = 'person-service-openapi'
-            version = '1.0.0'
+            version = '1.0.4'
 
             artifact openApiJar
             artifact openApiSourcesJar
@@ -103,7 +103,7 @@ publishing {
 
             credentials {
                 username = 'admin'
-                password = 'Artem882_javaboss'
+                password = 'admin123'
             }
         }
     }

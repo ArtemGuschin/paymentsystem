@@ -1,11 +1,15 @@
 package com.artem.individuals.service;
 
+
+
 import com.artem.api.UsersApi;
 import com.artem.individuals.client.KeycloakIntegrationClient;
 import com.artem.individuals.dto.request.RegistrationRequest;
 import com.artem.individuals.dto.response.KeycloakTokenResponse;
 import com.artem.individuals.dto.response.TokenResponse;
 import com.artem.individuals.dto.response.UserResponse;
+
+
 import com.artem.model.UserCreateRequest;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
@@ -51,8 +55,8 @@ public class UserService {
                     userCreateRequest.setPassword(request.getPassword());
                     userCreateRequest.setFirstName(request.getFirstName());
                     userCreateRequest.setLastName(request.getLastName());
-                    userCreateRequest.setAddress(null);
-                    userCreateRequest.setIndividual(null);
+                    userCreateRequest.setAddress(request.getAddress());
+                    userCreateRequest.setIndividual(request.getIndividual());
 
 
                     return Mono.just(usersApi.createUser(userCreateRequest));

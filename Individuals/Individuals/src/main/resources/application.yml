@@ -1,5 +1,5 @@
 server:
-  port: 9091
+  port: 9092
 
 keycloak:
   server-url: http://localhost:9091  # Имя сервиса в Docker

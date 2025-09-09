@@ -2,15 +2,15 @@ openapi: 3.0.3
 info:
   title: Person Service API
   description: Микросервис управления пользователями с транзакционными операциями
-  version: 1.0.0
+  version: 1.0.4
 servers:
-  - url: http://localhost:8081/api
+  - url: http://localhost:8091/api
     description: Локальная среда
   - url: https://person-service.prod/api
     description: Продакшн среда
 
 paths:
-  /users:
+  /api/v1/users:
     post:
       summary: Создание нового пользователя
       description: Транзакционное создание пользователя с linked сущностями
@@ -43,7 +43,7 @@ paths:
       tags:
         - Users
 
-  /users/{userId}:
+  /api/v1/users/{userId}:
     get:
       summary: Получение пользователя по ID
       operationId: getUserById
@@ -130,7 +130,7 @@ paths:
       tags:
         - Users
 
-  /users/by-email/{email}:
+  /api/v1/users/by-email/{email}:
     get:
       summary: Получение пользователя по email
       operationId: getUserByEmail
@@ -157,7 +157,7 @@ paths:
       tags:
         - Users
 
-  /users/{userId}/audit:
+  /api/v1/users/{userId}/audit:
     get:
       summary: Получение истории изменений пользователя
       description: Возвращает аудит изменений с использованием Hibernate Envers
