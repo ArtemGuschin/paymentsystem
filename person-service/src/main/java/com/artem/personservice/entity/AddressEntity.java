@@ -34,7 +34,6 @@ public class AddressEntity {
 
     private String address;
     private String zipCode;
-//    private LocalDateTime archived;
     private String city;
     private String state;
 
