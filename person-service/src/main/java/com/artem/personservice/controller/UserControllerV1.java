@@ -1,6 +1,7 @@
 package com.artem.personservice.controller;
 
 
+import com.artem.api.UsersApi;
 import com.artem.model.UserCreateRequest;
 import com.artem.model.UserUpdateRequest;
 import com.artem.personservice.service.UserService;
@@ -15,6 +16,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserControllerV1 {
     private final UserService userService;
+    UsersApi usersApi = new UsersApi();
 
     @PostMapping
     public ResponseEntity<?> createUser(@RequestBody UserCreateRequest request) {
@@ -44,9 +46,10 @@ public class UserControllerV1 {
         userService.deleteUser(userId);
         return ResponseEntity.noContent().build();
     }
+
     @DeleteMapping("/compensate/{userId}")
     public ResponseEntity<Void> compensateDeleteUser(@PathVariable UUID userId) {
-        userService.deleteUser(userId);
+        usersApi.deleteUserWithHttpInfo(userId);
         return ResponseEntity.noContent().build();
     }
 
