@@ -56,7 +56,7 @@ public class UserService {
                     userCreateRequest.setFirstName(request.getFirstName());
                     userCreateRequest.setLastName(request.getLastName());
                     userCreateRequest.setAddress(request.getAddress());
-                    userCreateRequest.setIndividual(request.getIndividual());
+                    userCreateRequest.setIndividual(request.getIndividual()); 
 
 
                     return Mono.just(usersApi.createUser(userCreateRequest));

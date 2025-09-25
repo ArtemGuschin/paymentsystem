@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Person Service API
   description: Микросервис управления пользователями с транзакционными операциями
-  version: 1.0.4
+  version: 1.0.8
 servers:
   - url: http://localhost:8091/api
     description: Локальная среда
@@ -259,18 +259,18 @@ components:
     AddressRequest:
       type: object
       required:
-        - countryId
-        - addressLine
-        - zipCode
+        - country_id
+        - address_line
+        - zip_code
         - city
       properties:
-        countryId:
+        country_id:
           type: integer
           example: 1
-        addressLine:
+        address_line:
           type: string
           example: ул. Пушкина, д.10
-        zipCode:
+        zip_code:
           type: string
           example: '123456'
         city:
@@ -286,11 +286,11 @@ components:
         id:
           type: string
           format: uuid
-        countryId:
+        country_id:
           type: integer
-        addressLine:
+        address_line:
           type: string
-        zipCode:
+        zip_code:
           type: string
         city:
           type: string
@@ -306,13 +306,13 @@ components:
     IndividualRequest:
       type: object
       required:
-        - passportNumber
-        - phoneNumber
+        - passport_number
+        - phone_number
       properties:
-        passportNumber:
+        passport_number:
           type: string
           example: '1234567890'
-        phoneNumber:
+        phone_number:
           type: string
           example: '+79161234567'
 

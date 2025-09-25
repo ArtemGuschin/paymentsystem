@@ -9,6 +9,10 @@ keycloak:
   admin-username: admin
   admin-password: admin  # Пароль администратора Keycloak
 
+person:
+  service:
+    base-url: http://localhost:${wiremock.server.port}
+
 spring:
   security:
     oauth2:

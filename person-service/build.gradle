@@ -59,7 +59,7 @@ publishing {
         openApi(MavenPublication) {
             groupId = 'com.artem'
             artifactId = 'person-service-openapi'
-            version = '1.0.4'
+            version = '1.0.8'
 
             artifact openApiJar
             artifact openApiSourcesJar
@@ -128,7 +128,8 @@ openApiGenerate {
             dateLibrary: "java8",
             openApiNullable: "false",
             useJakartaEe: "true",
-            library: "resttemplate"
+            library: "resttemplate",
+            basePath: "\"\""
     ]
 }
 
