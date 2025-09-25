@@ -16,7 +16,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserControllerV1 {
     private final UserService userService;
-    UsersApi usersApi = new UsersApi();
+
 
     @PostMapping
     public ResponseEntity<?> createUser(@RequestBody UserCreateRequest request) {
@@ -49,7 +49,7 @@ public class UserControllerV1 {
 
     @DeleteMapping("/compensate/{userId}")
     public ResponseEntity<Void> compensateDeleteUser(@PathVariable UUID userId) {
-        usersApi.deleteUserWithHttpInfo(userId);
+        userService.deleteUser(userId);
         return ResponseEntity.noContent().build();
     }
 

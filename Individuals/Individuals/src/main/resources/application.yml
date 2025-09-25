@@ -9,6 +9,12 @@ keycloak:
   admin-username: admin
   admin-password: admin  # Пароль администратора Keycloak
 
+person:
+  service:
+    base-url: ${PERSON_SERVICE_URL:http://localhost:8091}
+
+
+
 spring:
   security:
     oauth2:
@@ -23,3 +29,37 @@ spring:
 logging:
   level:
     org.springframework.security: DEBUG
+
+
+
+
+
+
+
+
+
+#server:
+#  port: 9092
+#
+#keycloak:
+#  server-url: http://localhost:9091  # Имя сервиса в Docker
+#  realm: individuals-realm
+#  client-id: individuals-api
+#  client-secret: your-client-secret  # Должен совпадать с Keycloak
+#  admin-username: admin
+#  admin-password: admin  # Пароль администратора Keycloak
+#
+#spring:
+#  security:
+#    oauth2:
+#      resourceserver:
+#        jwt:
+#          jwk-set-uri: http://localhost:9091/realms/individuals-realm/protocol/openid-connect/certs
+#
+#  cloud:
+#    compatibility-verifier:
+#      enabled: false
+#
+#logging:
+#  level:
+#    org.springframework.security: DEBUG

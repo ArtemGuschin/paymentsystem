@@ -2,8 +2,6 @@ package com.artem.individuals.dto.request;
 
 import com.artem.model.AddressRequest;
 import com.artem.model.IndividualRequest;
-import com.artem.personservice.entity.AddressEntity;
-import com.artem.personservice.entity.IndividualEntity;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 
@@ -33,4 +31,6 @@ public class RegistrationRequest extends AuthRequest {
     private String role;
 
 
+    public RegistrationRequest(String mail, String password123, String password1231) {
+    }
 }

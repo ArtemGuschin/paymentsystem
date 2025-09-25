@@ -1,7 +1,6 @@
 package com.artem.personservice.service;
 
 
-
 import com.artem.model.*;
 import com.artem.personservice.entity.AddressEntity;
 import com.artem.personservice.entity.IndividualEntity;
@@ -103,7 +102,7 @@ public class UserService {
 
     private AddressEntity createAddress(AddressRequest addressRequest) {
         AddressEntity address = new AddressEntity();
-        address.setAddress(addressRequest.getAddressLine()); // Используем getAddress(), не getAddressLine()
+        address.setAddress(addressRequest.getAddressLine());
         address.setZipCode(addressRequest.getZipCode());
         address.setCity(addressRequest.getCity());
         address.setState(addressRequest.getState());

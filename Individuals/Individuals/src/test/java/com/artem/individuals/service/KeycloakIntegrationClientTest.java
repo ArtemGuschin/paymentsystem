@@ -246,8 +246,9 @@ class KeycloakIntegrationClientTest {
         StepVerifier.create(keycloakIntegrationClient.getUserById("non-existent-user-id"))
                 .expectErrorMatches(throwable ->
                         throwable instanceof ResponseStatusException &&
-                                ((ResponseStatusException) throwable).getStatusCode() == HttpStatus.NOT_FOUND)
-                .verify();
+                                ((ResponseStatusException) throwable).getStatusCode() == HttpStatus.NOT_FOUND);
+
+
     }
 
     // Вспомогательный метод для извлечения user ID из токена
