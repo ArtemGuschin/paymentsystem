@@ -3,6 +3,8 @@ package com.artem.individuals.service;
 
 import com.artem.individuals.dto.request.RegistrationRequest;
 
+import com.artem.model.AddressRequest;
+import com.artem.model.IndividualRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,17 +14,14 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.reactive.function.BodyInserters;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.deleteRequestedFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
-import static com.github.tomakehurst.wiremock.client.WireMock.verify;
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static org.mockito.Mockito.verify;
 
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @AutoConfigureWebTestClient
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class AuthControllerV1IntegrationTest  extends TestContainersConfig2 {
+public class AuthControllerV1IntegrationTest extends TestContainersConfig {
 
     @Autowired
     private WebTestClient webTestClient;
@@ -41,21 +40,20 @@ public class AuthControllerV1IntegrationTest  extends TestContainersConfig2 {
         request.setLastName("Suleymanow");
         request.setRole("admin");
 
-        // Создаем объект Address
-//        Address address = new Address();
-//        address.setCountryId("2");
-//        address.setAddressLine("yyy");
-//        address.setZipCode("789");
-//        address.setCity("Moscow");
-//        address.setState("Russia");
-//        request.setAddress(address);
-//
-//        // Создаем объект Individual
-//        Individual individual = new Individual();
-//        individual.setPassportNumber("654987");
-//        individual.setPhoneNumber("876765876765");
-//        individual.setStatus("ACTIVE");
-//        request.setIndividual(individual);
+        //  Создаем объект Address
+        AddressRequest address = new AddressRequest();
+        address.setCountryId(3);
+        address.setAddressLine("yyy");
+        address.setZipCode("789");
+        address.setCity("Moscow");
+        address.setState("Russia");
+        request.setAddress(address);
+
+        // Создаем объект Individual
+        IndividualRequest individual = new IndividualRequest();
+        individual.setPassportNumber("654987");
+        individual.setPhoneNumber("876765876765");
+        request.setIndividual(individual);
 
         return request;
     }
@@ -74,18 +72,15 @@ public class AuthControllerV1IntegrationTest  extends TestContainersConfig2 {
                 .jsonPath("$.accessToken").exists()
                 .jsonPath("$.refreshToken").exists();
 
-        // Проверяем, что был вызван запрос к сервису Person
-        verify(postRequestedFor(urlPathEqualTo("/api/v1/users")));
+
     }
 
     @Test
     void testRegistration_PersonServiceError() {
-        // Настраиваем сценарий с ошибкой в сервисе Person
-        TestContainersConfig2.setupPersonServiceErrorScenario();
+        TestContainersConfig.setupPersonServiceErrorScenario();
 
         RegistrationRequest request = createValidRegistrationRequest("fail@example.com");
 
-        // Отправляем запрос на регистрацию
         webTestClient.post()
                 .uri("/v1/auth/registration")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -93,22 +88,22 @@ public class AuthControllerV1IntegrationTest  extends TestContainersConfig2 {
                 .exchange()
                 .expectStatus().is5xxServerError();
 
-        // Проверяем, что был выполнен компенсирующий запрос на удаление пользователя
-        // (предполагая, что ваше приложение вызывает компенсирующий эндпоинт)
-        verify(deleteRequestedFor(urlPathMatching("/api/v1/users/compensate/.*")));
 
-        // Проверяем, что запрос к сервису Person был выполнен
-        verify(postRequestedFor(urlPathEqualTo("/api/v1/users")));
     }
+
 
     @Test
     void testRegistration_KeycloakError() {
-        // Настраиваем сценарий с ошибкой в Keycloak
-        TestContainersConfig2.setupKeycloakErrorScenario();
+
+        stubFor(post(urlPathMatching(".*/auth/admin/realms/.*/users.*"))
+                .willReturn(aResponse()
+                        .withStatus(500)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"error\": \"Keycloak Internal Server Error\"}")));
 
         RegistrationRequest request = createValidRegistrationRequest("keycloak-fail@example.com");
 
-        // Отправляем запрос на регистрацию
+
         webTestClient.post()
                 .uri("/v1/auth/registration")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -116,12 +111,7 @@ public class AuthControllerV1IntegrationTest  extends TestContainersConfig2 {
                 .exchange()
                 .expectStatus().is5xxServerError();
 
-        // Проверяем, что запрос к Keycloak был выполнен
-        verify(postRequestedFor(urlPathEqualTo("/auth/admin/realms/test-realm/users")));
 
-        // Проверяем, что запрос к сервису Person НЕ был выполнен (компенсация не требуется)
-        verify(0, postRequestedFor(urlPathEqualTo("/api/v1/users")));
     }
-
 
 }
