@@ -55,6 +55,7 @@ dependencies {
     testImplementation 'org.springframework.cloud:spring-cloud-starter-contract-stub-runner:4.1.4'
 
     testImplementation 'org.wiremock.integrations.testcontainers:wiremock-testcontainers-module:1.0-alpha-15'
+    testImplementation'com.github.tomakehurst:wiremock-jre8:2.35.0'
 
 
     testImplementation 'org.mockito:mockito-core'
