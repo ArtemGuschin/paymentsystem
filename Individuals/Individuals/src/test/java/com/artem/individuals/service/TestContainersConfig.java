@@ -3,6 +3,7 @@ package com.artem.individuals.service;
 
 import com.artem.api.UsersApi;
 import com.artem.individuals.config.UserApiConfig;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
@@ -14,7 +15,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 import org.wiremock.integrations.testcontainers.WireMockContainer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @AutoConfigureWebTestClient
@@ -51,6 +52,7 @@ public class TestContainersConfig {
         // Настраиваем Keycloak
         setupKeycloak();
     }
+
 
 
 
@@ -109,14 +111,15 @@ public class TestContainersConfig {
                         .withHeader("Content-Type", "application/json")
                         .withBody("{\"status\": \"compensated\"}")));
 
+
         // Сценарий с ошибкой в сервисе Person
-        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/users"))
-                .inScenario("PersonErrorScenario")
-                .whenScenarioStateIs("Started")
-                .willReturn(WireMock.aResponse()
-                        .withStatus(500)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("{\"error\": \"Database error\"}")));
+//        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/users"))
+//                .inScenario("PersonErrorScenario")
+//                .whenScenarioStateIs("Started")
+//                .willReturn(WireMock.aResponse()
+//                        .withStatus(500)
+//                        .withHeader("Content-Type", "application/json")
+//                        .withBody("{\"error\": \"Database error\"}")));
     }
 
     public static void resetStubs() {
