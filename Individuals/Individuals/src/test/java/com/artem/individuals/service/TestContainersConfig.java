@@ -26,7 +26,6 @@ public class TestContainersConfig {
     private UsersApi usersApi;
 
 
-    // Keycloak Testcontainer
     public static final GenericContainer<?> keycloakContainer = new GenericContainer<>(
             DockerImageName.parse("quay.io/keycloak/keycloak:24.0.2"))
             .withExposedPorts(8080)
@@ -35,7 +34,6 @@ public class TestContainersConfig {
             .withCommand("start-dev")
             .waitingFor(Wait.forHttp("/admin").forStatusCode(200));
 
-    // WireMock Testcontainer для перехвата запросов к сервису Person
     public static final WireMockContainer wireMockContainer = new WireMockContainer(
             DockerImageName.parse("wiremock/wiremock:3.13.0"))
             .withExposedPorts(8080);
@@ -112,14 +110,7 @@ public class TestContainersConfig {
                         .withBody("{\"status\": \"compensated\"}")));
 
 
-        // Сценарий с ошибкой в сервисе Person
-//        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/users"))
-//                .inScenario("PersonErrorScenario")
-//                .whenScenarioStateIs("Started")
-//                .willReturn(WireMock.aResponse()
-//                        .withStatus(500)
-//                        .withHeader("Content-Type", "application/json")
-//                        .withBody("{\"error\": \"Database error\"}")));
+
     }
 
     public static void resetStubs() {
