@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: transactionService
+
+openapi:
+    spec-path: classpath:openapi/OpenApi.yaml
+    generated-package: com.artem.api
