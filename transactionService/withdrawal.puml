@@ -1,0 +1,49 @@
+@startuml
+actor Client
+participant IndividualsAPI
+participant TransactionService
+participant WalletService
+participant Kafka
+participant TransactionServiceConsumer
+participant DB
+
+== Инициализация вывода ==
+
+Client -> IndividualsAPI: POST /transactions/withdrawal/init
+IndividualsAPI -> TransactionService: calc withdrawal conditions
+TransactionService -> WalletService: проверка баланса
+
+alt Баланс достаточен
+    WalletService --> TransactionService: OK, лимиты
+    TransactionService --> IndividualsAPI: условия вывода
+    IndividualsAPI --> Client: 200 OK + условия вывода
+else Баланс недостаточен
+    WalletService --> TransactionService: ERROR
+    TransactionService --> IndividualsAPI: 402 Payment Required
+    IndividualsAPI --> Client: 402 Payment Required
+end
+
+== Подтверждение вывода ==
+
+Client -> IndividualsAPI: POST /transactions/withdrawal/confirm
+IndividualsAPI -> TransactionService: confirm withdrawal
+TransactionService -> DB: создать транзакцию PENDING
+TransactionService -> Kafka: WithdrawalRequested
+TransactionService --> IndividualsAPI: PENDING, transactionId
+IndividualsAPI --> Client: 202 Accepted, PENDING, transactionId
+
+== Асинхронная обработка ==
+
+
+TransactionServiceConsumer -> WalletService: списать средства
+
+alt Списание успешно
+    WalletService -> DB: Баланс--
+    WalletService --> TransactionServiceConsumer: OK
+    TransactionServiceConsumer -> DB: статус транзакции COMPLETED
+else Ошибка списания
+    WalletService --> TransactionServiceConsumer: ERROR
+    TransactionServiceConsumer -> DB: статус транзакции FAILED\n+ причина ошибки
+    TransactionServiceConsumer -> Kafka: WithdrawalFailed\n(для уведомлений)
+end
+@enduml

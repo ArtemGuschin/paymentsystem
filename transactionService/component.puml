@@ -1,0 +1,76 @@
+!theme plain
+@startuml
+skinparam componentStyle rectangle
+
+package "Transaction Service" {
+
+  component "API Controller" as Controller {
+    interface "ITransactionAPI" as IAPI
+    Controller -- IAPI
+  }
+
+  component "Deposit Handler" as Deposit {
+    interface "IDepositHandler" as IDeposit
+    Deposit - IDeposit
+  }
+
+  component "Withdrawal Handler" as Withdrawal {
+    interface "IWithdrawalHandler" as IWithdrawal
+    Withdrawal - IWithdrawal
+  }
+
+  component "Transfer Handler" as Transfer {
+    interface "ITransferHandler" as ITransfer
+    Transfer - ITransfer
+  }
+
+  component "Wallet Service" as Wallet {
+    interface "IWalletService" as IWallet
+    Wallet - IWallet
+  }
+
+  component "Transaction Core" as Core {
+    interface "ITransactionCore" as ICore
+    Core - ICore
+  }
+
+  component "Data Access" as Data {
+    interface "IDataAccess" as IData
+    Data - IData
+  }
+
+  component "Kafka Client" as KafkaClient {
+    interface "IEventPublisher" as IPublisher
+    KafkaClient - IPublisher
+  }
+}
+
+component "Individuals API" as API
+component "Apache Kafka" as Kafka
+component "PostgreSQL" as DB
+
+' connections
+API --> IAPI
+IAPI --> IDeposit
+IAPI --> IWithdrawal
+IAPI --> ITransfer
+
+IDeposit --> ICore
+IWithdrawal --> ICore
+ITransfer --> ICore
+
+IDeposit --> IWallet
+IWithdrawal --> IWallet
+ITransfer --> IWallet
+
+ICore --> IData
+IWallet --> IData
+IData --> DB
+
+IDeposit --> IPublisher
+IWithdrawal --> IPublisher
+ITransfer --> IPublisher
+
+IPublisher --> Kafka
+
+@enduml

@@ -4,11 +4,29 @@
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/Transaction Service" />
+        <option name="gradleJvm" value="openjdk-21" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/Transaction Service" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
         <option name="externalProjectPath" value="$PROJECT_DIR$/person-service" />
         <option name="gradleJvm" value="openjdk-21" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$/person-service" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/transactionService" />
+        <option name="gradleJvm" value="openjdk-21" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/transactionService" />
           </set>
         </option>
       </GradleProjectSettings>

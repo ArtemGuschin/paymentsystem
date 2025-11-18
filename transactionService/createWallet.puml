@@ -1,0 +1,39 @@
+@startuml
+actor Client
+participant IndividualsAPI
+participant WalletService
+participant IdentityService
+participant DB
+
+Client -> IndividualsAPI: POST /wallets/create\n{userId, currencyCode, walletTypeName}
+IndividualsAPI -> IdentityService: verifyUserIdentity(userId)
+
+alt Пользователь верифицирован
+    IdentityService --> IndividualsAPI: OK
+    IndividualsAPI -> WalletService: createWallet(userId, currencyCode, walletTypeName)
+
+    WalletService -> DB: Найти wallet_type
+    DB --> WalletService: wallet_type_uid
+
+    alt Тип кошелька найден
+        WalletService -> DB: Проверить существующий кошелек
+        DB --> WalletService: existing_wallet
+
+        alt Кошелек не существует
+            WalletService -> DB: INSERT INTO wallets\n(name, wallet_type_uid, user_uid, status, balance)
+            DB --> WalletService: new_wallet_uid
+            WalletService --> IndividualsAPI: wallet_uid, status=ACTIVE
+            IndividualsAPI --> Client: 201 Created\nwallet_uid, status=ACTIVE
+        else Кошелек уже существует
+            WalletService --> IndividualsAPI: wallet_uid, status
+            IndividualsAPI --> Client: 200 OK\nКошелек уже существует
+        end
+    else Тип не найден
+        WalletService --> IndividualsAPI: 400 Bad Request
+        IndividualsAPI --> Client: 400 Неподдерживаемый тип
+    end
+else Пользователь не верифицирован
+    IdentityService --> IndividualsAPI: 403 Forbidden
+    IndividualsAPI --> Client: 403 Требуется верификация
+end
+@enduml
