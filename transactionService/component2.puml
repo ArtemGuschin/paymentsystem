@@ -1,0 +1,90 @@
+@startuml
+title Payment System
+
+skinparam componentStyle rectangle
+
+' ----------------------------------------------------
+' Controller Layer
+' ----------------------------------------------------
+package "Controller" {
+    [WalletController]
+    [TransferController]
+    [WithdrawalController]
+    [ReplenishmentController]
+}
+
+' ----------------------------------------------------
+' Service Layer
+' ----------------------------------------------------
+package "Service" {
+    [WalletService]
+    [TransferService]
+    [WithdrawalService]
+    [ReplenishmentService]
+}
+
+' ----------------------------------------------------
+' Repository Layer
+' ----------------------------------------------------
+package "Repository" {
+    [WalletRepository]
+    [TransferRepository]
+    [WithdrawalRepository]
+    [ReplenishmentRepository]
+}
+
+' ----------------------------------------------------
+' Entity Layer
+' ----------------------------------------------------
+package "Entity" {
+    [Wallet]
+    [Transfer]
+    [Withdrawal]
+    [Replenish]
+}
+
+' ----------------------------------------------------
+' Kafka Layer
+' ----------------------------------------------------
+package "Kafka" {
+    [Producer]
+    [Consumer]
+}
+
+' ----------------------------------------------------
+' Relationships (sync)
+' ----------------------------------------------------
+
+' Controller -> Service
+[WalletController] --> [WalletService] : sync
+[TransferController] --> [TransferService] : sync
+[WithdrawalController] --> [WithdrawalService] : sync
+[ReplenishmentController] --> [ReplenishmentService] : sync
+
+' Service -> Repository
+[WalletService] --> [WalletRepository] : sync
+[TransferService] --> [TransferRepository] : sync
+[WithdrawalService] --> [WithdrawalRepository] : sync
+[ReplenishmentService] --> [ReplenishmentRepository] : sync
+
+' Service -> Entities
+[WalletService] --> [Wallet] : sync
+[TransferService] --> [Transfer] : sync
+[WithdrawalService] --> [Withdrawal] : sync
+[ReplenishmentService] --> [Replenish] : sync
+
+' ----------------------------------------------------
+' Kafka Async Interactions
+' ----------------------------------------------------
+
+' Service -> Producer (async events)
+[TransferService] ..> [Producer] : async
+[WithdrawalService] ..> [Producer] : async
+[ReplenishmentService] ..> [Producer] : async
+
+' Consumer -> Service (async event handling)
+[Consumer] ..> [TransferService] : async
+[Consumer] ..> [WithdrawalService] : async
+[Consumer] ..> [ReplenishmentService] : async
+
+@enduml

@@ -1,0 +1,50 @@
+@startuml
+actor Client
+participant IndividualsAPI
+participant TransactionService
+participant WalletService
+participant Kafka
+participant TransactionServiceConsumer
+participant DB
+
+== Инициализация депозита ==
+
+Client -> IndividualsAPI: POST /transactions/deposit/init
+IndividualsAPI -> TransactionService: calc deposit conditions (init)
+TransactionService -> WalletService: Проверка кошелька
+
+alt Кошелек валиден
+    WalletService --> TransactionService: OK
+    TransactionService --> IndividualsAPI: Условия (доступность, лимиты)
+    IndividualsAPI --> Client: 200 OK + условия
+else Ошибка
+    WalletService --> TransactionService: ERROR
+    TransactionService --> IndividualsAPI: 4xx
+    IndividualsAPI --> Client: 4xx Error
+end
+
+== Подтверждение депозита ==
+
+Client -> IndividualsAPI: POST /transactions/deposit/confirm
+IndividualsAPI -> TransactionService: confirm deposit
+TransactionService -> DB: Создать транзакцию PENDING
+TransactionService -> Kafka: DepositRequested
+TransactionService --> IndividualsAPI: Принято, status=PENDING, transactionId
+IndividualsAPI --> Client: 202 Accepted, status=PENDING, transactionId
+
+== Асинхронная обработка ==
+
+
+
+TransactionServiceConsumer -> WalletService: Зачислить средства
+
+alt Зачисление успешно
+    WalletService -> DB: Баланс++
+    WalletService --> TransactionServiceConsumer: OK
+    TransactionServiceConsumer -> DB: Статус транзакции COMPLETED
+else Ошибка зачисления
+    WalletService --> TransactionServiceConsumer: ERROR
+    TransactionServiceConsumer -> DB: Статус транзакции FAILED\n+ причина ошибки
+    TransactionServiceConsumer -> Kafka: DepositFailed\n(для уведомлений)
+end
+@enduml

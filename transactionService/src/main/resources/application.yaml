@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: transactionService
+
+  profiles:
+    active: sharding
+  kafka:
+    bootstrap-servers: localhost:9092
+
+server:
+  port: 8585
+
+logging:
+  level:
+    com.artem.transactionservice: DEBUG
+    springframework.web: DEBUG
+    org.hibernate: INFO
+
+

@@ -1,0 +1,48 @@
+@startuml
+actor Client
+participant IndividualsAPI
+participant TransactionService
+participant WalletService
+participant Kafka
+participant DB
+
+== Инициализация перевода ==
+
+Client -> IndividualsAPI: POST /transactions/transfer/init
+IndividualsAPI -> TransactionService: calc transfer conditions (init)
+TransactionService -> WalletService: Проверка отправителя
+TransactionService -> WalletService: Проверка получателя
+
+alt Оба кошелька валидны
+    WalletService --> TransactionService: OK, лимиты
+    TransactionService --> IndividualsAPI: Условия перевода
+    IndividualsAPI --> Client: 200 OK + условия
+else Ошибка
+    WalletService --> TransactionService: ERROR
+    TransactionService --> IndividualsAPI: 4xx
+    IndividualsAPI --> Client: 4xx Error
+end
+
+== Подтверждение и выполнение перевода ==
+
+Client -> IndividualsAPI: POST /transactions/transfer/confirm
+IndividualsAPI -> TransactionService: confirm transfer
+
+TransactionService -> DB: Создать транзакцию PENDING
+
+TransactionService -> WalletService: Перевести средства
+WalletService -> DB: Списать с отправителя\nЗачислить получателю
+
+alt Перевод успешен
+    WalletService --> TransactionService: OK
+    TransactionService -> DB: Статус транзакции COMPLETED
+    TransactionService -> Kafka: TransferCompleted
+    TransactionService --> IndividualsAPI: COMPLETED, transactionId
+    IndividualsAPI --> Client: 200 OK, COMPLETED, transactionId
+else Ошибка перевода
+    WalletService --> TransactionService: ERROR
+    TransactionService -> DB: Статус транзакции FAILED
+    TransactionService --> IndividualsAPI: 4xx Error
+    IndividualsAPI --> Client: 4xx Error
+end
+@enduml
