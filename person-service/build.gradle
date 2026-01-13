@@ -53,6 +53,7 @@ task openApiJavadocJar(type: Jar, dependsOn: openApiJavadoc) {
     from openApiJavadoc.destinationDir
 }
 
+
 // Конфигурация публикации
 publishing {
     publications {
@@ -61,9 +62,11 @@ publishing {
             artifactId = 'person-service-openapi'
             version = '1.0.8'
 
+
             artifact openApiJar
             artifact openApiSourcesJar
             artifact openApiJavadocJar
+
 
             pom {
                 name = 'Person Service OpenAPI Components'

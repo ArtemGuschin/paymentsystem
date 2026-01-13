@@ -1,0 +1,458 @@
+openapi: 3.0.0
+
+info:
+  title: Transaction Service API
+  version: 1.2.2
+
+servers:
+  - url: http://localhost:8585/api/v1
+
+paths:
+
+  /wallets:
+    post:
+      summary: Создание кошелька пользователя
+      tags: [Wallets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWalletRequest'
+      responses:
+        '201':
+          description: Кошелёк успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /wallets/{walletUid}:
+    get:
+      summary: Получение информации о кошельке
+      tags: [Wallets]
+      parameters:
+        - name: walletUid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Данные кошелька
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+        '404':
+          description: Кошелёк не найден
+
+    put:
+      summary: Обновление кошелька
+      tags: [Wallets]
+      parameters:
+        - name: walletUid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWalletRequest'
+      responses:
+        '200':
+          description: Кошелёк обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+
+    delete:
+      summary: Удаление (архивация) кошелька
+      tags: [Wallets]
+      parameters:
+        - name: walletUid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Кошелёк удалён
+
+  /wallets/user/{userUid}:
+    get:
+      summary: Получение всех кошельков пользователя
+      tags: [Wallets]
+      parameters:
+        - name: userUid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Список кошельков пользователя
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WalletResponse'
+
+  /topup/init:
+    post:
+      summary: Инициализация пополнения (расчёт условий)
+      tags: [TopUp]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopUpInitRequest'
+      responses:
+        '200':
+          description: Условия пополнения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopUpInitResponse'
+        '400':
+          description: Ошибка валидации
+        '404':
+          description: Кошелёк не найден
+
+  /topup/confirm:
+    post:
+      summary: Подтверждение пополнения
+      tags: [TopUp]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopUpConfirmRequest'
+      responses:
+        '202':
+          description: Пополнение принято в обработку
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopUpConfirmResponse'
+
+  /withdrawal/init:
+    post:
+      summary: Инициализация снятия средств (расчёт условий)
+      tags: [Withdrawal]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithdrawalInitRequest'
+      responses:
+        '200':
+          description: Условия снятия
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalInitResponse'
+        '400':
+          description: Ошибка валидации
+        '404':
+          description: Кошелёк не найден
+
+  /withdrawal/confirm:
+    post:
+      summary: Подтверждение снятия
+      tags: [Withdrawal]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithdrawalConfirmRequest'
+      responses:
+        '202':
+          description: Снятие принято в обработку
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalConfirmResponse'
+
+  /transfer/init:
+    post:
+      summary: Инициализация перевода (расчёт условий)
+      tags: [Transfer]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferInitRequest'
+      responses:
+        '200':
+          description: Условия перевода
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferInitResponse'
+        '400':
+          description: Ошибка валидации
+        '404':
+          description: Кошелёк не найден
+
+  /transfer/confirm:
+    post:
+      summary: Подтверждение перевода
+      tags: [Transfer]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferConfirmRequest'
+      responses:
+        '202':
+          description: Перевод принят в обработку
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferConfirmResponse'
+
+components:
+  schemas:
+
+    CreateWalletRequest:
+      type: object
+      required: [userUid, name, walletTypeUid]
+      properties:
+        userUid:
+          type: string
+          format: uuid
+        name:
+          type: string
+        walletTypeUid:
+          type: string
+          format: uuid
+
+    UpdateWalletRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, BLOCKED, ARCHIVED]
+
+    WalletResponse:
+      type: object
+      properties:
+        uid:
+          type: string
+          format: uuid
+        name:
+          type: string
+        userUid:
+          type: string
+        balance:
+          type: number
+        status:
+          type: string
+        walletType:
+          type: object
+          properties:
+            uid:
+              type: string
+              format: uuid
+            name:
+              type: string
+            currencyCode:
+              type: string
+
+    TopUpInitRequest:
+      type: object
+      required: [userUid, walletUid, amount]
+      properties:
+        userUid:
+          type: string
+          format: uuid
+        walletUid:
+          type: string
+          format: uuid
+        amount:
+          type: number
+
+    TopUpInitResponse:
+      type: object
+      properties:
+        available:
+          type: boolean
+        fee:
+          type: number
+        totalAmount:
+          type: number
+        currency:
+          type: string
+        message:
+          type: string
+
+    TopUpConfirmRequest:
+      type: object
+      required: [userUid, walletUid, amount]
+      properties:
+        userUid:
+          type: string
+          format: uuid
+        walletUid:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        comment:
+          type: string
+
+    TopUpConfirmResponse:
+      type: object
+      properties:
+        transactionUid:
+          type: string
+          format: uuid
+        status:
+          type: string
+          example: PENDING
+
+    WithdrawalInitRequest:
+      type: object
+      required: [userUid, walletUid, amount]
+      properties:
+        userUid:
+          type: string
+          format: uuid
+        walletUid:
+          type: string
+          format: uuid
+        amount:
+          type: number
+
+    WithdrawalInitResponse:
+      type: object
+      properties:
+        available:
+          type: boolean
+        fee:
+          type: number
+        totalAmount:
+          type: number
+        currency:
+          type: string
+        message:
+          type: string
+
+    WithdrawalConfirmRequest:
+      type: object
+      required: [userUid, walletUid, amount]
+      properties:
+        userUid:
+          type: string
+          format: uuid
+        walletUid:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        comment:
+          type: string
+
+    WithdrawalConfirmResponse:
+      type: object
+      properties:
+        transactionUid:
+          type: string
+          format: uuid
+        status:
+          type: string
+          example: PENDING
+
+    TransferInitRequest:
+      type: object
+      required: [userUid, walletUid, targetWalletUid, amount]
+      properties:
+        userUid:
+          type: string
+          format: uuid
+        walletUid:
+          type: string
+          format: uuid
+          description: Source wallet UID
+        targetWalletUid:
+          type: string
+          format: uuid
+          description: Target wallet UID
+        amount:
+          type: number
+
+    TransferInitResponse:
+      type: object
+      properties:
+        available:
+          type: boolean
+        fee:
+          type: number
+        totalAmount:
+          type: number
+        currency:
+          type: string
+        message:
+          type: string
+
+    TransferConfirmRequest:
+      type: object
+      required: [userUid, walletUid, targetWalletUid, amount]
+      properties:
+        userUid:
+          type: string
+          format: uuid
+        walletUid:
+          type: string
+          format: uuid
+          description: Source wallet UID
+        targetWalletUid:
+          type: string
+          format: uuid
+          description: Target wallet UID
+        amount:
+          type: number
+        comment:
+          type: string
+
+    TransferConfirmResponse:
+      type: object
+      properties:
+        transactionUid:
+          type: string
+          format: uuid
+        status:
+          type: string
+          example: PENDING
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: string
