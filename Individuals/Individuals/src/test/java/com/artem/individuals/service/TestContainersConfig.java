@@ -2,19 +2,23 @@ package com.artem.individuals.service;
 
 
 import com.artem.api.UsersApi;
-import com.artem.individuals.config.UserApiConfig;
+import com.artem.individuals.client.KeycloakIntegrationClient;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.reactive.server.WebTestClient;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 import org.wiremock.integrations.testcontainers.WireMockContainer;
+
+
 
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -24,6 +28,11 @@ import org.wiremock.integrations.testcontainers.WireMockContainer;
 public class TestContainersConfig {
     @Autowired
     private UsersApi usersApi;
+    @Autowired
+    protected WebTestClient webTestClient;
+    @Autowired
+    protected KeycloakIntegrationClient keycloakIntegrationClient;
+
 
 
     public static final GenericContainer<?> keycloakContainer = new GenericContainer<>(
@@ -38,6 +47,7 @@ public class TestContainersConfig {
             DockerImageName.parse("wiremock/wiremock:3.13.0"))
             .withExposedPorts(8080);
 
+
     static {
         // Запускаем оба контейнера
         keycloakContainer.start();
@@ -46,12 +56,9 @@ public class TestContainersConfig {
         // Настраиваем WireMock
         WireMock.configureFor("localhost", wireMockContainer.getMappedPort(8080));
         setupPersonServiceStubs();
-
-        // Настраиваем Keycloak
         setupKeycloak();
+        setupTopUpStubs();
     }
-
-
 
 
     private static void setupKeycloak() {
@@ -89,6 +96,7 @@ public class TestContainersConfig {
         }
     }
 
+
     private static void setupPersonServiceStubs() {
         // Заглушки для сервиса Person - успешные сценарии
         WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/users"))
@@ -110,13 +118,19 @@ public class TestContainersConfig {
                         .withBody("{\"status\": \"compensated\"}")));
 
 
-
     }
-
-    public static void resetStubs() {
+    @BeforeEach
+    void setup() {
         WireMock.reset();
         setupPersonServiceStubs();
+        setupTopUpStubs();
     }
+
+//    public static void resetStubs() {
+//        WireMock.reset();
+//        setupPersonServiceStubs();
+//
+//    }
 
     public static void setupPersonServiceErrorScenario() {
         WireMock.reset();
@@ -147,22 +161,84 @@ public class TestContainersConfig {
                         .withHeader("Content-Type", "application/json")
                         .withBody("{\"error\": \"User already exists\"}")));
     }
-
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {
-        // Keycloak properties
-        String keycloakUrl = "http://" + keycloakContainer.getHost() + ":" + keycloakContainer.getMappedPort(8080);
+
+        String keycloakUrl = "http://" + keycloakContainer.getHost()
+                + ":" + keycloakContainer.getMappedPort(8080);
+
+//        registry.add(
+//                "spring.security.oauth2.resourceserver.jwt.jwk-set-uri",
+//                () -> keycloakUrl + "/realms/test-realm/protocol/openid-connect/certs"
+//        );
+        registry.add(
+                "spring.security.oauth2.resourceserver.jwt.issuer-uri",
+                () -> keycloakUrl + "/realms/test-realm"
+        );
+
         registry.add("keycloak.server-url", () -> keycloakUrl);
         registry.add("keycloak.realm", () -> "test-realm");
         registry.add("keycloak.client-id", () -> "test-client");
         registry.add("keycloak.client-secret", () -> "test-secret");
 
-
-        // Person service properties - указываем на WireMock вместо реального сервиса
-
-        registry.add("person.service.base-url", () -> wireMockContainer.getBaseUrl() );
-
+        registry.add("person.service.base-url", wireMockContainer::getBaseUrl);
+        registry.add("transaction.service.url", wireMockContainer::getBaseUrl);
     }
+
+
+
+
+
+//    @DynamicPropertySource
+//    static void registerProperties(DynamicPropertyRegistry registry) {
+//        // Keycloak properties
+//        String keycloakUrl = "http://" + keycloakContainer.getHost() + ":" + keycloakContainer.getMappedPort(8080);
+//        registry.add("keycloak.server-url", () -> keycloakUrl);
+//        registry.add("keycloak.realm", () -> "test-realm");
+//        registry.add("keycloak.client-id", () -> "test-client");
+//        registry.add("keycloak.client-secret", () -> "test-secret");
+//        registry.add(
+//                "spring.security.oauth2.resourceserver.jwt.issuer-uri",
+//                () -> keycloakUrl + "/realms/test-realm"
+//        );
+//
+//
+//
+//        // Person service properties - указываем на WireMock вместо реального сервиса
+//
+//        registry.add("person.service.base-url", wireMockContainer::getBaseUrl);
+//        registry.add("transaction.service.url", wireMockContainer::getBaseUrl);
+//
+//    }
+
+    private static void  setupTopUpStubs() {
+
+        WireMock.stubFor(WireMock.post(WireMock.urlEqualTo("/topup/init"))
+                .willReturn(WireMock.aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                    {
+                                      "available": true,
+                                      "fee": 0.000,
+                                      "totalAmount": 100.000,
+                                      "currency": "RUB",
+                                      "message": null
+                                    }
+                                """)));
+
+        WireMock.stubFor(WireMock.post(WireMock.urlEqualTo("/topup/confirm"))
+                .willReturn(WireMock.aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                    {
+                                      "transactionUid": "123e4567-e89b-12d3-a456-426614174000",
+                                      "status": "SUCCESS"
+                                    }
+                                """)));
+    }
+
 }
 
 

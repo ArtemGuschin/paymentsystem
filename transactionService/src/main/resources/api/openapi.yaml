@@ -11,6 +11,7 @@ paths:
 
   /wallets:
     post:
+      operationId: createWallet
       summary: Создание кошелька пользователя
       tags: [Wallets]
       requestBody:
@@ -35,6 +36,7 @@ paths:
 
   /wallets/{walletUid}:
     get:
+      operationId: getWalletByUid
       summary: Получение информации о кошельке
       tags: [Wallets]
       parameters:
@@ -55,6 +57,7 @@ paths:
           description: Кошелёк не найден
 
     put:
+      operationId: updateWallet
       summary: Обновление кошелька
       tags: [Wallets]
       parameters:
@@ -79,6 +82,7 @@ paths:
                 $ref: '#/components/schemas/WalletResponse'
 
     delete:
+      operationId: archiveWallet
       summary: Удаление (архивация) кошелька
       tags: [Wallets]
       parameters:
@@ -94,6 +98,7 @@ paths:
 
   /wallets/user/{userUid}:
     get:
+      operationId: getUserWallets
       summary: Получение всех кошельков пользователя
       tags: [Wallets]
       parameters:
@@ -115,6 +120,7 @@ paths:
 
   /topup/init:
     post:
+      operationId: initTopUp
       summary: Инициализация пополнения (расчёт условий)
       tags: [TopUp]
       requestBody:
@@ -137,6 +143,7 @@ paths:
 
   /topup/confirm:
     post:
+      operationId: confirmTopUp
       summary: Подтверждение пополнения
       tags: [TopUp]
       requestBody:
@@ -155,6 +162,7 @@ paths:
 
   /withdrawal/init:
     post:
+      operationId: initWithdrawal
       summary: Инициализация снятия средств (расчёт условий)
       tags: [Withdrawal]
       requestBody:
@@ -177,6 +185,7 @@ paths:
 
   /withdrawal/confirm:
     post:
+      operationId: confirmWithdrawal
       summary: Подтверждение снятия
       tags: [Withdrawal]
       requestBody:
@@ -195,6 +204,7 @@ paths:
 
   /transfer/init:
     post:
+      operationId: initTransfer
       summary: Инициализация перевода (расчёт условий)
       tags: [Transfer]
       requestBody:
@@ -217,6 +227,7 @@ paths:
 
   /transfer/confirm:
     post:
+      operationId: confirmTransfer
       summary: Подтверждение перевода
       tags: [Transfer]
       requestBody:
@@ -397,11 +408,9 @@ components:
         walletUid:
           type: string
           format: uuid
-          description: Source wallet UID
         targetWalletUid:
           type: string
           format: uuid
-          description: Target wallet UID
         amount:
           type: number
 
@@ -429,11 +438,9 @@ components:
         walletUid:
           type: string
           format: uuid
-          description: Source wallet UID
         targetWalletUid:
           type: string
           format: uuid
-          description: Target wallet UID
         amount:
           type: number
         comment:

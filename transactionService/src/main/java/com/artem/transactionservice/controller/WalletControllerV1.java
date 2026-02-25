@@ -18,7 +18,7 @@ public class WalletControllerV1 {
 
     private final WalletService walletService;
 
-    @PostMapping("/create")
+    @PostMapping
     @Transactional
     public Wallet createWallet(@RequestBody CreateWalletRequest createWalletRequest) {
         return walletService.createWallet(createWalletRequest);

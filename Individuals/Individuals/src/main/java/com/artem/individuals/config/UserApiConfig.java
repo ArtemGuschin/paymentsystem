@@ -23,4 +23,5 @@ public class UserApiConfig {
     public UsersApi usersApi(ApiClient apiClient) {
         return new UsersApi(apiClient);
     }
+
 }

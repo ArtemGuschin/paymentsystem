@@ -13,12 +13,17 @@ import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.web.server.ResponseStatusException;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -68,4 +73,33 @@ public class SecurityConfig {
             }
         };
     }
+//@Bean
+//public Converter<Jwt, ? extends Mono<? extends AbstractAuthenticationToken>> jwtAuthConverter() {
+//
+//    JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter =
+//            new JwtGrantedAuthoritiesConverter();
+//
+//    grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
+//    grantedAuthoritiesConverter.setAuthoritiesClaimName("realm_access.roles");
+//
+//    ReactiveJwtAuthenticationConverter converter =
+//            new ReactiveJwtAuthenticationConverter();
+//
+//    converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+//        Collection<GrantedAuthority> authorities = new ArrayList<>();
+//
+//        Map<String, Object> realmAccess = jwt.getClaim("realm_access");
+//        if (realmAccess != null && realmAccess.containsKey("roles")) {
+//            List<String> roles = (List<String>) realmAccess.get("roles");
+//            roles.forEach(role ->
+//                    authorities.add(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+//            );
+//        }
+//
+//        return Flux.fromIterable(authorities);
+//    });
+//
+//    return converter;
+//}
+
 }
