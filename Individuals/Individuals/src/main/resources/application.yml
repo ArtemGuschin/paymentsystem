@@ -1,26 +1,19 @@
 server:
-  port: 9092
-
-keycloak:
-  server-url: http://localhost:9091  # Имя сервиса в Docker
-  realm: individuals-realm
-  client-id: individuals-api
-  client-secret: your-client-secret  # Должен совпадать с Keycloak
-  admin-username: admin
-  admin-password: admin  # Пароль администратора Keycloak
-
-person:
-  service:
-    base-url: ${PERSON_SERVICE_URL:http://localhost:8091}
-
-
+  port: 9093
 
 spring:
+  main:
+    web-application-type: reactive
+    allow-bean-definition-overriding: true
+
   security:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: http://localhost:9091/realms/individuals-realm/protocol/openid-connect/certs
+          # РЕКОМЕНДУЮ issuer-uri, а не jwk-set-uri
+          issuer-uri: http://localhost:9091/realms/individuals-realm
+          # если хочешь оставить jwk-set-uri, закомментируй issuer-uri
+          # jwk-set-uri: http://localhost:9091/realms/individuals-realm/protocol/openid-connect/certs
 
   cloud:
     compatibility-verifier:
@@ -29,6 +22,41 @@ spring:
 logging:
   level:
     org.springframework.security: DEBUG
+    org.springframework.web: INFO
+    root: INFO
+    com.artem.transaction.client: INFO
+
+
+keycloak:
+  server-url: http://localhost:9091
+  realm: individuals-realm
+  client-id: individuals-api
+  client-secret: your-client-secret
+  admin-username: admin
+  admin-password: admin
+
+
+person:
+  service:
+    base-url: ${PERSON_SERVICE_URL:http://localhost:8091}
+
+transaction:
+  service:
+    url: ${TRANSACTION_SERVICE_URL:http://localhost:8585/api/v1}
+
+
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+
+
+
+
+
 
 
 

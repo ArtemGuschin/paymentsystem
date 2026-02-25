@@ -13,12 +13,23 @@ person:
   service:
     base-url: http://localhost:${wiremock.server.port}
 
+transaction:
+  service:
+    url: http://localhost:${wiremock.server.port}
+
+#spring:
+#  security:
+#    oauth2:
+#      resourceserver:
+#        jwt:
+#          jwk-set-uri: http://localhost:9091/realms/individuals-realm/protocol/openid-connect/certs
+
 spring:
   security:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: http://localhost:9091/realms/individuals-realm/protocol/openid-connect/certs
+          issuer-uri: http://localhost:${keycloak.port}/realms/test-realm
 
 logging:
   level:
