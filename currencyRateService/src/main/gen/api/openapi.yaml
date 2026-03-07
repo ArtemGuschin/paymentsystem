@@ -1,0 +1,190 @@
+openapi: 3.0.0
+info:
+  description: |
+    API для получения, расчёта и хранения курсов валют.
+    Используется внутренними сервисами (через Individuals API) для расчёта стоимости конверсии при операциях с кошельками.
+  title: Currency Rate Service API
+  version: 1.0.0
+servers:
+- url: http://localhost:8083/api/v1
+paths:
+  /rates:
+    get:
+      parameters:
+      - description: "Код исходной валюты (например, \"USD\")"
+        explode: true
+        in: query
+        name: from
+        required: true
+        schema:
+          maxLength: 3
+          type: string
+        style: form
+      - description: "Код целевой валюты (например, \"EUR\")"
+        explode: true
+        in: query
+        name: to
+        required: true
+        schema:
+          maxLength: 3
+          type: string
+        style: form
+      - description: "Дата/время, на которую нужен курс (ISO 8601, UTC). Если не у\
+          казано, возвращается последний актуальный курс."
+        explode: true
+        in: query
+        name: timestamp
+        required: false
+        schema:
+          format: date-time
+          type: string
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateResponse'
+          description: Курс найден
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Курс не найден
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Ошибка запроса
+      summary: Получить курс между двумя валютами на указанную дату/время
+      x-accepts:
+      - application/json
+  /currencies:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/CurrencyResponse'
+                type: array
+          description: Список валют
+      summary: Получить список поддерживаемых валют
+      x-accepts:
+      - application/json
+  /rate-providers:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/RateProviderResponse'
+                type: array
+          description: Провайдеры
+      summary: Получить список провайдеров курсов валют
+      x-accepts:
+      - application/json
+  /health:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/_health_get_200_response'
+          description: Сервис работает
+      summary: Health check
+      x-accepts:
+      - application/json
+components:
+  schemas:
+    RateResponse:
+      example:
+        sourceCode: sourceCode
+        destinationCode: destinationCode
+        providerCode: providerCode
+        rate: 0.8008281904610115
+        rateTimestamp: 2000-01-23T04:56:07.000+00:00
+      properties:
+        sourceCode:
+          description: "Код исходной валюты (например, \"USD\")"
+          type: string
+        destinationCode:
+          description: "Код целевой валюты (например, \"EUR\")"
+          type: string
+        rate:
+          description: Курс обмена sourceCode→destinationCode
+          type: number
+        rateTimestamp:
+          description: "Время, на которое действует курс"
+          format: date-time
+          type: string
+        providerCode:
+          description: Код провайдера курса
+          type: string
+      type: object
+    CurrencyResponse:
+      example:
+        symbol: symbol
+        code: code
+        isoCode: 0
+        description: description
+        active: true
+      properties:
+        code:
+          description: Трёхбуквенный код валюты (ISO 4217)
+          type: string
+        isoCode:
+          description: Числовой ISO-код валюты
+          type: integer
+        description:
+          type: string
+        active:
+          type: boolean
+        symbol:
+          description: "Символ валюты (например, $ или €)"
+          type: string
+      type: object
+    RateProviderResponse:
+      example:
+        providerCode: providerCode
+        description: description
+        active: true
+        priority: 0
+        providerName: providerName
+      properties:
+        providerCode:
+          type: string
+        providerName:
+          type: string
+        description:
+          type: string
+        priority:
+          type: integer
+        active:
+          type: boolean
+      type: object
+    ErrorResponse:
+      example:
+        error: error
+        status: 6
+      properties:
+        error:
+          type: string
+        status:
+          type: integer
+      type: object
+    _health_get_200_response:
+      example:
+        status: UP
+      properties:
+        status:
+          example: UP
+          type: string
+      type: object
+
