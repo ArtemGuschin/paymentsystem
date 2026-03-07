@@ -1,35 +1,51 @@
 @startuml
 
+skinparam componentStyle rectangle
+
 package "Currency Rate Service" {
 
-  [CurrencyRateController]
+  package "API Layer" {
+      [CurrencyRateController]
+  }
 
-  [ExchangeRateService]
+  package "Scheduler Layer" {
+      [RateUpdateScheduler]
+  }
 
-  [RateUpdateScheduler]
+  package "Business Logic Layer" {
+      [ExchangeRateService]
+  }
 
-  [ExternalRateProviderClient]
+  package "Integration Layer" {
+      [ExternalRateProviderClient]
+  }
 
-  [CurrencyRepository]
-
-  [ConversionRateRepository]
+  package "Persistence Layer" {
+      [CurrencyRepository]
+      [ConversionRateRepository]
+      [RateProviderRepository]
+  }
 
 }
 
 database "PostgreSQL"
 
-[CurrencyRateController] --> [ExchangeRateService]
+[CurrencyRateController] --> [ExchangeRateService] : получить курс
 
-[RateUpdateScheduler] --> [ExchangeRateService]
+[RateUpdateScheduler] --> [ExchangeRateService] : updateRates()
 
-[ExchangeRateService] --> [ExternalRateProviderClient]
+[ExchangeRateService] --> [ExternalRateProviderClient] : запрос курсов
 
-[ExchangeRateService] --> [CurrencyRepository]
+[ExchangeRateService] --> [CurrencyRepository] : получить валюты
 
-[ExchangeRateService] --> [ConversionRateRepository]
+[ExchangeRateService] --> [ConversionRateRepository] : сохранить курсы
+
+[ExchangeRateService] --> [RateProviderRepository] : получить провайдера
 
 [CurrencyRepository] --> "PostgreSQL"
 
 [ConversionRateRepository] --> "PostgreSQL"
+
+[RateProviderRepository] --> "PostgreSQL"
 
 @enduml
