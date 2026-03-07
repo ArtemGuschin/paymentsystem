@@ -1,0 +1,32 @@
+@startuml
+
+actor Client
+
+participant "Individuals API"
+participant "CurrencyRateService"
+participant "TransactionService"
+database "База данных"
+
+Client -> "Individuals API": POST /transactions/transfer/init (USD → EUR)
+
+"Individuals API" -> "Individuals API": проверка валют кошельков
+
+alt валюта отличается
+
+    "Individuals API" -> "CurrencyRateService": GET /rates?from=USD&to=EUR
+
+    "CurrencyRateService" -> "База данных": найти актуальный курс
+
+    "База данных" --> "CurrencyRateService": курс валют
+
+    "CurrencyRateService" --> "Individuals API": RateResponse
+
+end
+
+"Individuals API" -> "TransactionService": создание транзакции с курсом
+
+"TransactionService" --> "Individuals API": условия транзакции
+
+"Individuals API" --> Client: условия транзакции
+
+@enduml
