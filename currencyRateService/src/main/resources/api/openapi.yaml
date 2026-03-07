@@ -1,0 +1,158 @@
+openapi: 3.0.0
+info:
+  title: Currency Rate Service API
+  version: 1.0.0
+  description: |
+    API для получения, расчёта и хранения курсов валют.
+    Используется внутренними сервисами (через Individuals API) для расчёта стоимости конверсии при операциях с кошельками.
+
+servers:
+  - url: http://localhost:8083/api/v1
+
+paths:
+  /rates:
+    get:
+      summary: Получить курс между двумя валютами на указанную дату/время
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 3
+          description: Код исходной валюты (например, "USD")
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 3
+          description: Код целевой валюты (например, "EUR")
+        - name: timestamp
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Дата/время, на которую нужен курс (ISO 8601, UTC). Если не указано, возвращается последний актуальный курс.
+      responses:
+        '200':
+          description: Курс найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateResponse'
+        '404':
+          description: Курс не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Ошибка запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /currencies:
+    get:
+      summary: Получить список поддерживаемых валют
+      responses:
+        '200':
+          description: Список валют
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CurrencyResponse'
+
+  /rate-providers:
+    get:
+      summary: Получить список провайдеров курсов валют
+      responses:
+        '200':
+          description: Провайдеры
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RateProviderResponse'
+
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Сервис работает
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: UP
+
+components:
+  schemas:
+    RateResponse:
+      type: object
+      properties:
+        sourceCode:
+          type: string
+          description: Код исходной валюты (например, "USD")
+        destinationCode:
+          type: string
+          description: Код целевой валюты (например, "EUR")
+        rate:
+          type: number
+          description: Курс обмена sourceCode→destinationCode
+        rateTimestamp:
+          type: string
+          format: date-time
+          description: Время, на которое действует курс
+        providerCode:
+          type: string
+          description: Код провайдера курса
+
+    CurrencyResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Трёхбуквенный код валюты (ISO 4217)
+        isoCode:
+          type: integer
+          description: Числовой ISO-код валюты
+        description:
+          type: string
+        active:
+          type: boolean
+        symbol:
+          type: string
+          description: Символ валюты (например, $ или €)
+
+    RateProviderResponse:
+      type: object
+      properties:
+        providerCode:
+          type: string
+        providerName:
+          type: string
+        description:
+          type: string
+        priority:
+          type: integer
+        active:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        status:
+          type: integer

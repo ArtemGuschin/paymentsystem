@@ -1,0 +1,49 @@
+@startuml
+
+actor "Планировщик Spring"
+
+participant "RateUpdateScheduler"
+participant "Shedlock"
+participant "ExchangeRateService"
+participant "External Rate Provider API"
+database "База данных"
+
+"Планировщик Spring" -> RateUpdateScheduler: запуск задачи updateRates()
+
+RateUpdateScheduler -> Shedlock: попытка получить lock ("updateRates")
+
+alt lock получен
+
+    Shedlock --> RateUpdateScheduler: выполнение разрешено
+
+    RateUpdateScheduler -> ExchangeRateService: updateRates()
+
+    ExchangeRateService -> "External Rate Provider API": запрос актуальных курсов валют
+
+    "External Rate Provider API" --> ExchangeRateService: курсы валют (Map<code, rate>)
+
+    ExchangeRateService -> "База данных": получить список активных валют
+
+    "База данных" --> ExchangeRateService: список валют
+
+    loop для каждой валютной пары (A → B)
+
+        ExchangeRateService -> ExchangeRateService: рассчитать курс A → B
+
+        ExchangeRateService -> "База данных": закрыть предыдущий курс
+
+        ExchangeRateService -> "База данных": сохранить новый курс
+
+    end
+
+    ExchangeRateService --> RateUpdateScheduler: обновление завершено
+
+    RateUpdateScheduler -> Shedlock: освобождение lock
+
+else lock не получен
+
+    Shedlock --> RateUpdateScheduler: задача уже выполняется
+
+end
+
+@enduml

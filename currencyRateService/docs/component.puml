@@ -1,0 +1,35 @@
+@startuml
+
+package "Currency Rate Service" {
+
+  [CurrencyRateController]
+
+  [ExchangeRateService]
+
+  [RateUpdateScheduler]
+
+  [ExternalRateProviderClient]
+
+  [CurrencyRepository]
+
+  [ConversionRateRepository]
+
+}
+
+database "PostgreSQL"
+
+[CurrencyRateController] --> [ExchangeRateService]
+
+[RateUpdateScheduler] --> [ExchangeRateService]
+
+[ExchangeRateService] --> [ExternalRateProviderClient]
+
+[ExchangeRateService] --> [CurrencyRepository]
+
+[ExchangeRateService] --> [ConversionRateRepository]
+
+[CurrencyRepository] --> "PostgreSQL"
+
+[ConversionRateRepository] --> "PostgreSQL"
+
+@enduml

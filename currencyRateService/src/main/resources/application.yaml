@@ -1,3 +1,5 @@
 spring:
   application:
     name: currencyRateService
+server:
+  port: 9999
