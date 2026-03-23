@@ -1,158 +1,377 @@
-openapi: 3.0.0
-info:
-  title: Currency Rate Service API
-  version: 1.0.0
-  description: |
-    API для получения, расчёта и хранения курсов валют.
-    Используется внутренними сервисами (через Individuals API) для расчёта стоимости конверсии при операциях с кошельками.
 
-servers:
-  - url: http://localhost:8083/api/v1
+  openapi: 3.0.0
 
-paths:
-  /rates:
-    get:
-      summary: Получить курс между двумя валютами на указанную дату/время
-      parameters:
-        - name: from
-          in: query
+  info:
+    title: Currency Rate Service API
+    version: 1.0.0
+    description: |
+      API для получения, расчёта и хранения курсов валют.
+      Используется внутренними сервисами для расчёта стоимости конверсии
+      при операциях с кошельками.
+
+  servers:
+    - url: http://localhost:8083/api/v1
+
+  tags:
+    - name: rates
+      description: Операции с курсами валют
+    - name: currencies
+      description: Справочник валют
+    - name: providers
+      description: Провайдеры курсов валют
+    - name: system
+      description: Системные операции
+
+  paths:
+
+    /rates:
+      get:
+        tags:
+          - rates
+        operationId: getRate
+        summary: Получить курс между двумя валютами
+        parameters:
+
+          - name: from
+            in: query
+            required: true
+            description: Код исходной валюты (ISO 4217)
+            schema:
+              type: string
+              pattern: "^[A-Z]{3}$"
+              example: USD
+
+          - name: to
+            in: query
+            required: true
+            description: Код целевой валюты (ISO 4217)
+            schema:
+              type: string
+              pattern: "^[A-Z]{3}$"
+              example: EUR
+
+          - name: timestamp
+            in: query
+            required: false
+            description: |
+              Дата/время, на которую требуется курс.
+              Если не указано — возвращается актуальный курс.
+            schema:
+              type: string
+              format: date-time
+
+        responses:
+          '200':
+            description: Курс найден
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/RateResponse'
+
+          '404':
+            description: Курс не найден
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+
+          '400':
+            description: Некорректный запрос
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+
+
+    /rates/convert:
+      post:
+        tags:
+          - rates
+        operationId: convertCurrency
+        summary: Рассчитать конверсию между валютами
+        requestBody:
           required: true
-          schema:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConvertRequest'
+
+        responses:
+          '200':
+            description: Результат конверсии
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ConvertResponse'
+
+          '404':
+            description: Курс не найден
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+
+          '400':
+            description: Некорректный запрос
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+
+
+    /currencies:
+      get:
+        tags:
+          - currencies
+        operationId: getCurrencies
+        summary: Получить список поддерживаемых валют
+        responses:
+          '200':
+            description: Список валют
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/CurrencyListResponse'
+
+
+    /rate-providers:
+      get:
+        tags:
+          - providers
+        operationId: getRateProviders
+        summary: Получить список провайдеров курсов валют
+        responses:
+          '200':
+            description: Список провайдеров
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/RateProviderListResponse'
+
+
+    /health:
+      get:
+        tags:
+          - system
+        operationId: healthCheck
+        summary: Проверка состояния сервиса
+        responses:
+          '200':
+            description: Сервис работает
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/HealthResponse'
+
+
+  components:
+
+    schemas:
+
+      RateResponse:
+        type: object
+        required:
+          - sourceCode
+          - destinationCode
+          - rate
+          - rateTimestamp
+        properties:
+
+          sourceCode:
             type: string
-            maxLength: 3
-          description: Код исходной валюты (например, "USD")
-        - name: to
-          in: query
-          required: true
-          schema:
+            description: Код исходной валюты
+            example: USD
+
+          destinationCode:
             type: string
-            maxLength: 3
-          description: Код целевой валюты (например, "EUR")
-        - name: timestamp
-          in: query
-          required: false
-          schema:
+            description: Код целевой валюты
+            example: EUR
+
+          rate:
+            type: number
+            format: double
+            description: Курс обмена source → destination
+            example: 0.92
+
+          rateTimestamp:
             type: string
             format: date-time
-          description: Дата/время, на которую нужен курс (ISO 8601, UTC). Если не указано, возвращается последний актуальный курс.
-      responses:
-        '200':
-          description: Курс найден
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RateResponse'
-        '404':
-          description: Курс не найден
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '400':
-          description: Ошибка запроса
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+            description: Время действия курса
 
-  /currencies:
-    get:
-      summary: Получить список поддерживаемых валют
-      responses:
-        '200':
-          description: Список валют
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/CurrencyResponse'
+          providerCode:
+            type: string
+            description: Код провайдера курса
+            example: ECB
 
-  /rate-providers:
-    get:
-      summary: Получить список провайдеров курсов валют
-      responses:
-        '200':
-          description: Провайдеры
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/RateProviderResponse'
 
-  /health:
-    get:
-      summary: Health check
-      responses:
-        '200':
-          description: Сервис работает
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: UP
+      ConvertRequest:
+        type: object
+        required:
+          - sourceCode
+          - destinationCode
+          - amount
+        properties:
 
-components:
-  schemas:
-    RateResponse:
-      type: object
-      properties:
-        sourceCode:
-          type: string
-          description: Код исходной валюты (например, "USD")
-        destinationCode:
-          type: string
-          description: Код целевой валюты (например, "EUR")
-        rate:
-          type: number
-          description: Курс обмена sourceCode→destinationCode
-        rateTimestamp:
-          type: string
-          format: date-time
-          description: Время, на которое действует курс
-        providerCode:
-          type: string
-          description: Код провайдера курса
+          sourceCode:
+            type: string
+            description: Код исходной валюты
+            example: USD
 
-    CurrencyResponse:
-      type: object
-      properties:
-        code:
-          type: string
-          description: Трёхбуквенный код валюты (ISO 4217)
-        isoCode:
-          type: integer
-          description: Числовой ISO-код валюты
-        description:
-          type: string
-        active:
-          type: boolean
-        symbol:
-          type: string
-          description: Символ валюты (например, $ или €)
+          destinationCode:
+            type: string
+            description: Код целевой валюты
+            example: EUR
 
-    RateProviderResponse:
-      type: object
-      properties:
-        providerCode:
-          type: string
-        providerName:
-          type: string
-        description:
-          type: string
-        priority:
-          type: integer
-        active:
-          type: boolean
+          amount:
+            type: number
+            format: double
+            description: Сумма для конверсии
+            example: 100
 
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-        status:
-          type: integer
+
+      ConvertResponse:
+        type: object
+        required:
+          - sourceCode
+          - destinationCode
+          - sourceAmount
+          - convertedAmount
+          - rate
+        properties:
+
+          sourceCode:
+            type: string
+            example: USD
+
+          destinationCode:
+            type: string
+            example: EUR
+
+          sourceAmount:
+            type: number
+            format: double
+            example: 100
+
+          convertedAmount:
+            type: number
+            format: double
+            example: 92
+
+          rate:
+            type: number
+            format: double
+            example: 0.92
+
+          rateTimestamp:
+            type: string
+            format: date-time
+
+          providerCode:
+            type: string
+            example: ECB
+
+
+      CurrencyResponse:
+        type: object
+        required:
+          - code
+          - isoCode
+          - active
+        properties:
+
+          code:
+            type: string
+            description: Трёхбуквенный код валюты
+            example: USD
+
+          isoCode:
+            type: integer
+            description: Числовой ISO код валюты
+            example: 840
+
+          description:
+            type: string
+            example: US Dollar
+
+          active:
+            type: boolean
+            example: true
+
+          symbol:
+            type: string
+            example: $
+
+
+      CurrencyListResponse:
+        type: array
+        items:
+          $ref: '#/components/schemas/CurrencyResponse'
+
+
+      RateProviderResponse:
+        type: object
+        required:
+          - providerCode
+          - providerName
+          - priority
+        properties:
+
+          providerCode:
+            type: string
+            example: ECB
+
+          providerName:
+            type: string
+            example: European Central Bank
+
+          description:
+            type: string
+
+          priority:
+            type: integer
+            example: 1
+
+          active:
+            type: boolean
+            example: true
+
+
+      RateProviderListResponse:
+        type: array
+        items:
+          $ref: '#/components/schemas/RateProviderResponse'
+
+
+      HealthResponse:
+        type: object
+        properties:
+
+          status:
+            type: string
+            example: UP
+
+
+      ErrorResponse:
+        type: object
+        required:
+          - error
+          - status
+          - timestamp
+        properties:
+
+          error:
+            type: string
+            example: RATE_NOT_FOUND
+
+          message:
+            type: string
+            example: Currency rate not found
+
+          status:
+            type: integer
+            example: 404
+
+          timestamp:
+            type: string
+            format: date-time
+

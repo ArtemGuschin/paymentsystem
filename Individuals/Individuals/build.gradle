@@ -21,6 +21,7 @@ repositories {
         def snapshotsRepoUrl = "http://localhost:8081/repository/maven-snapshots/"
         url = "http://localhost:8081/repository/maven-public/"
 
+
         credentials {
             username = 'admin'
             password = 'admin123'
@@ -36,10 +37,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.keycloak:keycloak-admin-client:24.0.2'
+    implementation 'org.springframework:spring-tx'
     implementation 'com.artem:person-service-openapi:1.0.8'
-
     implementation 'com.artem:transaction-client:0.0.1-20260121.160744-4'
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign:4.1.3'
+    implementation 'com.artem:currency-rate-client:0.0.1-20260323.111317-4'
     implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.5.0'
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
@@ -49,18 +51,10 @@ dependencies {
     testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.testcontainers:testcontainers:1.19.8'
     testImplementation 'org.testcontainers:junit-jupiter:1.19.8'
-    implementation 'org.springframework:spring-tx'
-
-
     testImplementation 'com.github.dasniko:testcontainers-keycloak:3.7.0'
-
-
     testImplementation 'org.springframework.cloud:spring-cloud-starter-contract-stub-runner:4.1.4'
-
     testImplementation 'org.wiremock.integrations.testcontainers:wiremock-testcontainers-module:1.0-alpha-15'
-    testImplementation'com.github.tomakehurst:wiremock-jre8:2.35.0'
-
-
+    testImplementation 'com.github.tomakehurst:wiremock-jre8:2.35.0'
     testImplementation 'org.mockito:mockito-core'
     testImplementation 'org.mockito:mockito-junit-jupiter'
     testImplementation 'com.fasterxml.jackson.core:jackson-databind'
