@@ -3,6 +3,7 @@
   <component name="ExternalStorageConfigurationManager" enabled="true" />
   <component name="FrameworkDetectionExcludesConfiguration">
     <file type="web" url="file://$PROJECT_DIR$/currencyRateService" />
+    <file type="web" url="file://$PROJECT_DIR$/fake-payment-provider" />
     <file type="web" url="file://$PROJECT_DIR$/person-service" />
     <file type="web" url="file://$PROJECT_DIR$/transactionService" />
   </component>

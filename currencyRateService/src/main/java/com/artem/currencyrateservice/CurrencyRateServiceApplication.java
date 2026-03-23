@@ -2,9 +2,13 @@ package com.artem.currencyrateservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.openfeign.EnableFeignClients;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
-public class   CurrencyRateServiceApplication {
+@EnableScheduling
+@EnableFeignClients
+public class CurrencyRateServiceApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(CurrencyRateServiceApplication.class, args);
