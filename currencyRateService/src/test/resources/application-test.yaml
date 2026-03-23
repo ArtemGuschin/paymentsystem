@@ -1,0 +1,15 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+
+
+logging:
+  level:
+    org.springframework: warn

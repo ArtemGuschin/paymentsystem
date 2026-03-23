@@ -126,11 +126,7 @@ public class TestContainersConfig {
         setupTopUpStubs();
     }
 
-//    public static void resetStubs() {
-//        WireMock.reset();
-//        setupPersonServiceStubs();
-//
-//    }
+
 
     public static void setupPersonServiceErrorScenario() {
         WireMock.reset();
@@ -167,10 +163,7 @@ public class TestContainersConfig {
         String keycloakUrl = "http://" + keycloakContainer.getHost()
                 + ":" + keycloakContainer.getMappedPort(8080);
 
-//        registry.add(
-//                "spring.security.oauth2.resourceserver.jwt.jwk-set-uri",
-//                () -> keycloakUrl + "/realms/test-realm/protocol/openid-connect/certs"
-//        );
+
         registry.add(
                 "spring.security.oauth2.resourceserver.jwt.issuer-uri",
                 () -> keycloakUrl + "/realms/test-realm"
@@ -189,27 +182,7 @@ public class TestContainersConfig {
 
 
 
-//    @DynamicPropertySource
-//    static void registerProperties(DynamicPropertyRegistry registry) {
-//        // Keycloak properties
-//        String keycloakUrl = "http://" + keycloakContainer.getHost() + ":" + keycloakContainer.getMappedPort(8080);
-//        registry.add("keycloak.server-url", () -> keycloakUrl);
-//        registry.add("keycloak.realm", () -> "test-realm");
-//        registry.add("keycloak.client-id", () -> "test-client");
-//        registry.add("keycloak.client-secret", () -> "test-secret");
-//        registry.add(
-//                "spring.security.oauth2.resourceserver.jwt.issuer-uri",
-//                () -> keycloakUrl + "/realms/test-realm"
-//        );
-//
-//
-//
-//        // Person service properties - указываем на WireMock вместо реального сервиса
-//
-//        registry.add("person.service.base-url", wireMockContainer::getBaseUrl);
-//        registry.add("transaction.service.url", wireMockContainer::getBaseUrl);
-//
-//    }
+
 
     private static void  setupTopUpStubs() {
 

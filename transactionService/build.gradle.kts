@@ -130,13 +130,9 @@ transactionClientSourceSet.java.srcDir(
     "$buildDir/generated-client/src/main/java"
 )
 
-transactionClientSourceSet.compileClasspath =
-    transactionClientSourceSet.compileClasspath +
-            sourceSets["main"].compileClasspath
+transactionClientSourceSet.compileClasspath += sourceSets["main"].compileClasspath
 
-transactionClientSourceSet.runtimeClasspath =
-    transactionClientSourceSet.runtimeClasspath +
-            sourceSets["main"].runtimeClasspath
+transactionClientSourceSet.runtimeClasspath += sourceSets["main"].runtimeClasspath
 
 
 tasks.named("compileTransactionClientJava") {
@@ -226,33 +222,24 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.kafka:spring-kafka")
     implementation("org.springframework.boot:spring-boot-starter-validation")
-
     implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
     implementation("com.fasterxml.jackson.module:jackson-module-parameter-names")
-
     implementation("io.swagger.core.v3:swagger-annotations:2.2.20")
     implementation("javax.annotation:javax.annotation-api:1.3.2")
     implementation("org.openapitools:jackson-databind-nullable:0.2.6")
-
     implementation("ch.qos.logback.contrib:logback-json-classic:0.1.5")
-
     implementation("org.apache.shardingsphere:shardingsphere-jdbc:5.5.2")
     implementation("com.zaxxer:HikariCP:5.0.1")
-
     implementation("org.flywaydb:flyway-core:10.20.1")
     implementation("org.flywaydb:flyway-database-postgresql:10.20.1")
-
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
-
     runtimeOnly("org.postgresql:postgresql")
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
-
     implementation("org.mapstruct:mapstruct:1.6.3")
     annotationProcessor("org.mapstruct:mapstruct-processor:1.6.3")
     implementation("com.fasterxml.jackson.core:jackson-core:2.18.0")
-
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation("org.testcontainers:junit-jupiter")
