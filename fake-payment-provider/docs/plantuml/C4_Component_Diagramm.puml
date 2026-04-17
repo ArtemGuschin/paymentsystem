@@ -1,0 +1,72 @@
+@startuml
+!theme spacelab
+
+' Удалён WebhookController (входящие вебхуки больше не нужны)
+package "Controller Layer" {
+  component "TransactionController" <<Controller>> as TC
+  component "PayoutController" <<Controller>> as PC
+}
+
+package "Service Layer" {
+  component "TransactionService" <<Service>> as TS
+  component "PayoutService" <<Service>> as PS
+  component "WebhookAuditService" <<Service>> as WAS
+  ' WebhookAuditService — для аудита исходящих вебхуков
+  component "WebhookSender" <<Service>> as Sender
+  component "SimulationService" <<Service>> as Sim
+}
+
+package "Security" {
+  component "BasicAuthFilter\n(Spring Security)" <<Security>> as SEC
+}
+
+package "Persistence Layer" {
+  component "TransactionRepository" <<JPA>> as TR
+  component "PayoutRepository" <<JPA>> as PR
+  component "WebhookRepository" <<JPA>> as WR
+  component "MerchantRepository" <<JPA>> as MR
+}
+
+database "PostgreSQL" as DB
+
+actor "Merchant Application" as Merchant
+
+' --- Аутентификация ---
+TC --> SEC
+PC --> SEC
+SEC --> MR : load merchant (Basic Auth)
+
+' --- Вызовы сервисов ---
+TC --> TS
+PC --> PS
+
+' --- Работа с репозиториями ---
+TS --> TR
+PS --> PR
+
+' --- Симуляция статуса ---
+TS --> Sim
+PS --> Sim
+
+' --- Отправка исходящих вебхуков ---
+TS --> Sender : отправить вебхук (после изменения статуса)
+PS --> Sender
+
+Sender --> WAS : сохранить попытку отправки
+WAS --> WR : запись в БД
+
+Sender --> Merchant : POST /webhook (уведомление о статусе)
+
+' --- Связи с БД ---
+TR --> DB
+PR --> DB
+WR --> DB
+MR --> DB
+
+note right of Sender
+  Логика повторных попыток,
+  подпись запросов,
+  выбор URL из настроек мерчанта.
+end note
+
+@enduml

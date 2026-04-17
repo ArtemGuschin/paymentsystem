@@ -1,0 +1,45 @@
+@startuml
+actor MerchantApp as "Merchant Application"
+participant API as "Payment Provider API"
+database DB as "PostgreSQL DB"
+participant ExternalSystem as "External Payment System"
+
+== Create Payout ==
+
+MerchantApp -> API: POST /api/v1/payouts (Basic Auth)
+activate API
+
+API -> API: Validate request
+API -> API: Authenticate merchant
+
+API -> DB: INSERT payout (status=PENDING, merchant_id, amount, ...)
+DB --> API: payout ID
+
+API -> MerchantApp: 201 Created (status=PENDING)
+
+deactivate API
+
+== Incoming Webhook ==
+
+ExternalSystem -> API: POST /webhooks (eventType, entityId, payload)
+activate API
+
+API -> API: Validate webhook (signature, etc.)
+
+API -> DB: INSERT INTO webhooks (event_type, entity_id, payload, notification_url)
+note right: received_at = NOW()
+
+API -> DB: UPDATE payouts SET status=SUCCESS/FAILED WHERE id = entity_id
+
+API --> ExternalSystem: 200 OK
+
+deactivate API
+
+note right of API
+  Аудит входящего вебхука:
+  • сохраняется полный payload
+  • фиксируется время получения
+  • обновляется статус выплаты
+end note
+
+@enduml

@@ -25,33 +25,36 @@ configurations {
         extendsFrom(configurations.annotationProcessor.get())
     }
 }
+val jacksonDatabindNullableVersion: String by project
+val swaggerAnnotationsVersion: String by project
+val mapstructVersion: String by project
+val wiremockStandaloneVersion: String by project
+val lombokMapstructBindingVersion: String by project
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-security")
-
-    // ✅ FIX
     implementation("org.springframework.boot:spring-boot-starter-web")
-
+    implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.flywaydb:flyway-core")
-
-    implementation("io.swagger.core.v3:swagger-annotations:2.2.20")
-    implementation("org.openapitools:jackson-databind-nullable:0.2.6")
+    implementation("io.swagger.core.v3:swagger-annotations:${swaggerAnnotationsVersion}")
+    implementation("org.openapitools:jackson-databind-nullable:${jacksonDatabindNullableVersion}")
+    implementation("org.mapstruct:mapstruct:${mapstructVersion}")
+    annotationProcessor("org.mapstruct:mapstruct-processor:${mapstructVersion}")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml")
+    implementation("org.hibernate.orm:hibernate-core")
 
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
-
+    annotationProcessor("org.projectlombok:lombok-mapstruct-binding:${lombokMapstructBindingVersion}")
     runtimeOnly("org.postgresql:postgresql")
 
-    // ✅ FIX ТЕСТЫ
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
-
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.wiremock:wiremock-standalone:${wiremockStandaloneVersion}")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
-
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -62,7 +65,6 @@ tasks.withType<Test> {
 openApiGenerate {
     generatorName.set("spring")
 
-    // ✅ FIX
     inputSpec.set(file("src/main/resources/api/openapi.yaml").absolutePath)
 
     outputDir.set(layout.buildDirectory.dir("generated").get().asFile.absolutePath)
@@ -85,24 +87,19 @@ openApiGenerate {
     )
 }
 
-// ✅ FIX sourceSets
 sourceSets["main"].java {
     srcDir(layout.buildDirectory.dir("generated/src/main/java"))
 }
 
-// чтобы генерация шла до компиляции
 tasks.compileJava {
     dependsOn(tasks.openApiGenerate)
 }
 
-//
-// 🔥 CLIENT JAR
-//
+
 tasks.register<Jar>("clientJar") {
     archiveClassifier.set("")
 
     from(sourceSets.main.get().output) {
-        // ✅ FIX ПАКЕТЫ
         include("com/artem/fakepaymentprovider/api/**")
         include("com/artem/fakepaymentprovider/dto/**")
     }
@@ -110,9 +107,7 @@ tasks.register<Jar>("clientJar") {
     dependsOn(tasks.compileJava)
 }
 
-//
-// 🔥 SOURCES JAR
-//
+
 tasks.register<Jar>("sourcesJar") {
     archiveClassifier.set("sources")
     from(sourceSets.main.get().allSource)
@@ -132,7 +127,6 @@ publishing {
 
             groupId = project.group.toString()
 
-            // ⚠️ можно оставить, но лучше переименовать
             artifactId = "fake-payment-client"
 
             version = project.version.toString()
