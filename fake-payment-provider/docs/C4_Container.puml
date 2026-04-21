@@ -1,0 +1,24 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+Person_Ext(merchant, "Merchant System", "Клиент провайдера (создаёт транзакции/выплаты)", $tags="ext")
+Person_Ext(externalSystem, "External Payment System", "Присылает вебхуки о статусах", $tags="ext")
+
+System_Boundary(provider_sys, "Fake Payment Provider (Эмулятор)") {
+  Container(api, "Payment Provider API", "Spring Boot", "REST API: transactions, payouts; приём webhook-уведомлений от внешних систем; симуляция статусов")
+  ContainerDb(db, "PostgreSQL Database", "PostgreSQL", "merchants, transactions, payouts, webhooks (аудит входящих)")
+}
+
+Rel(merchant, api, "POST /api/v1/transactions, /api/v1/payouts", "HTTPS + Basic Auth")
+Rel(externalSystem, api, "POST /webhooks (уведомления о статусе)", "HTTPS")
+Rel(api, db, "CRUD", "JDBC")
+
+note right of api
+  При входящем вебхуке:
+  • валидация и проверка подписи (опционально)
+  • обновление статуса транзакции/выплаты
+  • сохранение аудита в таблицу webhooks
+  • ответ 200 OK внешней системе
+end note
+
+@enduml

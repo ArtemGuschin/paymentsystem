@@ -1,0 +1,267 @@
+openapi: 3.0.0
+info:
+  title: Fake Payment Provider API
+  version: "1.0"
+
+servers:
+  - url: http://localhost:8888
+
+security:
+  - basicAuth: []
+
+tags:
+  - name: Transactions
+  - name: Payouts
+  - name: Webhooks
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+
+  schemas:
+
+    TransactionRequest:
+      type: object
+      required: [amount, currency, method]
+      properties:
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+        method:
+          type: string
+        description:
+          type: string
+        externalId:
+          type: string
+        notificationUrl:
+          type: string
+
+    Transaction:
+      type: object
+      required: [id, merchantId, amount, currency, method, status, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        merchantId:
+          type: integer
+          format: int64
+          description: Internal merchant DB ID
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+        method:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, SUCCESS, FAILED]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        description:
+          type: string
+        externalId:
+          type: string
+        notificationUrl:
+          type: string
+
+    PayoutRequest:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+        externalId:
+          type: string
+        notificationUrl:
+          type: string
+
+    Payout:
+      type: object
+      required: [id, merchantId, amount, currency, status, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        merchantId:
+          type: integer
+          format: int64
+          description: Internal merchant DB ID
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, SUCCESS, FAILED]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        externalId:
+          type: string
+        notificationUrl:
+          type: string
+
+    Webhook:
+      type: object
+      required: [eventType, entityId]
+      properties:
+        eventType:
+          type: string
+        entityId:
+          type: integer
+          format: int64
+        payload:
+          type: object
+          additionalProperties: true
+        receivedAt:
+          type: string
+          format: date-time
+        notificationUrl:
+          type: string
+
+paths:
+
+  /api/v1/transactions:
+    post:
+      tags: [Transactions]
+      operationId: createTransaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+
+    get:
+      tags: [Transactions]
+      operationId: getTransactions
+      parameters:
+        - in: query
+          name: start_date
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: end_date
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transaction'
+
+  /api/v1/transactions/{id}:
+    get:
+      tags: [Transactions]
+      operationId: getTransactionById
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+
+  /api/v1/payouts:
+    post:
+      tags: [Payouts]
+      operationId: createPayout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayoutRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payout'
+
+    get:
+      tags: [Payouts]
+      operationId: getPayouts
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payout'
+
+  /api/v1/payouts/{id}:
+    get:
+      tags: [Payouts]
+      operationId: getPayoutById
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payout'
+
+  /webhooks:
+    post:
+      tags: [Webhooks]
+      operationId: receiveWebhook
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Webhook'
+      responses:
+        '200':
+          description: OK

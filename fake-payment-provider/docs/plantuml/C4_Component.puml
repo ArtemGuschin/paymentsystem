@@ -1,0 +1,53 @@
+@startuml
+!theme spacelab
+
+component "TransactionController" <<Controller>> as TC
+component "PayoutController" <<Controller>> as PC
+component "WebhookController" <<Controller>> as WC
+
+component "TransactionService" <<Service>> as TS
+component "PayoutService" <<Service>> as PS
+component "WebhookService" <<Service>> as WS
+component "AuthService" <<Service>> as Auth
+
+database "PostgreSQL" as DB
+
+component "TransactionRepository\n(JPA)" <<Repository>> as TR
+component "PayoutRepository\n(JPA)" <<Repository>> as PR
+component "WebhookRepository\n(JPA)" <<Repository>> as WR
+component "MerchantRepository\n(JPA)" <<Repository>> as MR
+
+actor "External System\n(Bank, PSP)" as ExternalSender
+ ' источник входящих вебхуков
+
+TC --> TS : создание/получение транзакций
+PC --> PS : создание/получение выплат
+WC --> WS : обработка входящего webhook
+
+TS --> TR : CRUD транзакций
+PS --> PR : CRUD выплат
+WS --> WR : сохранить аудит входящего webhook
+
+TS --> Auth : проверка прав мерчанта
+PC --> Auth : проверка прав мерчанта
+(Auth) .. MR : Basic Auth
+.. MR : поиск мерчанта
+
+WS --> TS : обновить статус транзакции (если webhook про транзакцию)
+WS --> PS : обновить статус выплаты (если webhook про выплату)
+
+ExternalSender --> WC : POST /webhooks (уведомление о статусе)
+
+TR --> DB
+PR --> DB
+WR --> DB
+MR --> DB
+
+note right of WS
+  Валидация входящего вебхука,
+  проверка подписи (опционально),
+  обновление статуса,
+  сохранение аудита в таблицу webhooks.
+end note
+
+@enduml
