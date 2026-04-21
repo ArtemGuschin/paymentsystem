@@ -70,7 +70,7 @@ public class WebhookService {
         log.info("Sending webhook: {} to {}", eventType, url);
 
         try {
-            restTemplate.postForEntity(url, payload, Void.class); // 👈 ВОТ ОНА
+            restTemplate.postForEntity(url, payload, Void.class); 
         } catch (Exception e) {
             log.error("Webhook failed: {}", e.getMessage());
         }
@@ -83,80 +83,3 @@ public class WebhookService {
     }
 }
 
-//import com.artem.fakepaymentprovider.dto.Webhook;
-//import com.artem.fakepaymentprovider.model.*;
-//import com.artem.fakepaymentprovider.repository.*;
-//
-//import lombok.RequiredArgsConstructor;
-//import lombok.extern.slf4j.Slf4j;
-//
-//import org.springframework.stereotype.Service;
-//import org.springframework.transaction.annotation.Transactional;
-//
-//import java.time.Instant;
-//
-//@Service
-//@RequiredArgsConstructor
-//@Slf4j
-//public class WebhookService {
-//
-//    private final WebhookRepository webhookRepository;
-//    private final TransactionRepository transactionRepository;
-//    private final PayoutRepository payoutRepository;
-//
-//    @Transactional
-//    public void handleWebhook(Webhook request) {
-//
-//        log.info("Received webhook: eventType={}, entityId={}",
-//                request.getEventType(), request.getEntityId());
-//
-//
-//        WebhookEntity webhook = WebhookEntity.builder()
-//                .eventType(request.getEventType())
-//                .entityId(request.getEntityId())
-//                .payload(request.getPayload())
-//                .notificationUrl(request.getNotificationUrl())
-//                .receivedAt(Instant.now())
-//                .build();
-//
-//        webhookRepository.save(webhook);
-//
-//
-//        String status = resolveStatus(request.getEventType());
-//
-//
-//        if (request.getEventType().startsWith("TRANSACTION_")) {
-//
-//            transactionRepository.findById(request.getEntityId())
-//                    .ifPresentOrElse(tx -> {
-//                        tx.setStatus(status);
-//                        tx.setUpdatedAt(Instant.now());
-//                    }, () -> {
-//                        throw new RuntimeException("Transaction not found");
-//                    });
-//
-//        } else if (request.getEventType().startsWith("PAYOUT_")) {
-//
-//            payoutRepository.findById(request.getEntityId())
-//                    .ifPresentOrElse(payout -> {
-//                        payout.setStatus(status);
-//                        payout.setUpdatedAt(Instant.now());
-//                    }, () -> {
-//                        throw new RuntimeException("Payout not found");
-//                    });
-//        }
-//    }
-//
-//    private String resolveStatus(String eventType) {
-//
-//        if (eventType.endsWith("SUCCESS")) {
-//            return "SUCCESS";
-//        }
-//
-//        if (eventType.endsWith("FAILED")) {
-//            return "FAILED";
-//        }
-//
-//        return "PENDING";
-//    }
-//}

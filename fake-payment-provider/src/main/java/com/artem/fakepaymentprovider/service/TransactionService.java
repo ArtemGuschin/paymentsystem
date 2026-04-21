@@ -5,9 +5,11 @@ import com.artem.fakepaymentprovider.dto.TransactionRequest;
 import com.artem.fakepaymentprovider.mapper.TransactionMapper;
 import com.artem.fakepaymentprovider.model.MerchantEntity;
 import com.artem.fakepaymentprovider.model.TransactionEntity;
+import com.artem.fakepaymentprovider.model.WebhookEntity;
 import com.artem.fakepaymentprovider.repository.MerchantRepository;
 import com.artem.fakepaymentprovider.repository.TransactionRepository;
 
+import com.artem.fakepaymentprovider.repository.WebhookRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,6 +31,7 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final MerchantRepository merchantRepository;
+    private final WebhookRepository webhookRepository;
     private final TransactionMapper mapper;
 
 
@@ -125,7 +128,6 @@ public class TransactionService {
             }
         }).start();
     }
-
     private void sendWebhook(TransactionEntity tx) {
 
         if (tx.getNotificationUrl() == null) {
@@ -133,20 +135,29 @@ public class TransactionService {
             return;
         }
 
+        RestTemplate restTemplate = new RestTemplate();
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("status", tx.getStatus());
+        payload.put("amount", tx.getAmount());
+
+        WebhookEntity webhook = WebhookEntity.builder()
+                .eventType("TRANSACTION_SUCCESS")
+                .entityId(tx.getId())
+                .payload(payload)
+                .notificationUrl(tx.getNotificationUrl())
+                .receivedAt(Instant.now())
+                .build();
+
+        webhook = webhookRepository.save(webhook);
+
         try {
-            RestTemplate restTemplate = new RestTemplate();
+            System.out.println(">>> SENDING WEBHOOK TO: " + tx.getNotificationUrl());
 
             Map<String, Object> body = new HashMap<>();
             body.put("eventType", "TRANSACTION_SUCCESS");
             body.put("entityId", tx.getId());
-
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("status", tx.getStatus());
-            payload.put("amount", tx.getAmount());
-
             body.put("payload", payload);
-
-            System.out.println(">>> SENDING WEBHOOK TO: " + tx.getNotificationUrl());
 
             restTemplate.postForObject(
                     tx.getNotificationUrl(),
@@ -154,8 +165,54 @@ public class TransactionService {
                     String.class
             );
 
+
         } catch (Exception e) {
             e.printStackTrace();
+
+
         }
+
+        webhookRepository.save(webhook);
     }
+
+//    private void sendWebhook(TransactionEntity tx) {
+//
+//        if (tx.getNotificationUrl() == null) {
+//            System.out.println(">>> NO WEBHOOK URL");
+//            return;
+//        }
+//
+//        try {
+//            RestTemplate restTemplate = new RestTemplate();
+//
+//            Map<String, Object> body = new HashMap<>();
+//            body.put("eventType", "TRANSACTION_SUCCESS");
+//            body.put("entityId", tx.getId());
+//
+//            Map<String, Object> payload = new HashMap<>();
+//            payload.put("status", tx.getStatus());
+//            payload.put("amount", tx.getAmount());
+//
+//            body.put("payload", payload);
+//
+//            System.out.println(">>> SENDING WEBHOOK TO: " + tx.getNotificationUrl());
+//
+//            restTemplate.postForObject(
+//                    tx.getNotificationUrl(),
+//                    body,
+//                    String.class
+//            );
+//            WebhookEntity webhook = WebhookEntity.builder()
+//                    .eventType("TRANSACTION_SUCCESS")
+//                    .entityId(tx.getId())
+//                    .payload(payload)
+//                    .notificationUrl(tx.getNotificationUrl())
+//                    .receivedAt(Instant.now())
+//                    .build();
+//
+//            webhookRepository.save(webhook);
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
 }

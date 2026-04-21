@@ -32,13 +32,13 @@ public class WebhookEntity {
     @Column(name = "entity_id", nullable = false)
     private Long entityId;
 
-    // JSONB
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "payload")
     private Map<String, Object> payload;
 
     @Column(name = "received_at", nullable = false, updatable = false)
     private Instant receivedAt;
+
 
     @Column(name = "notification_url", length = 2048)
     private String notificationUrl;
