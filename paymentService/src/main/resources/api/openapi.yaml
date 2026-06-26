@@ -1,0 +1,209 @@
+openapi: 3.0.0
+
+info:
+  title: Payment Service API
+  version: "1.0.0"
+  description: Payment Gateway Service
+
+servers:
+  - url: http://localhost:8083
+
+paths:
+
+  /api/v1/payment-methods/{currencyCode}/{countryCode}:
+    get:
+      operationId: getAvailablePaymentMethods
+      summary: Get available payment methods
+      description: Returns payment methods available for specified currency and country
+
+      parameters:
+        - name: currencyCode
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 3
+
+        - name: countryCode
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 3
+
+      responses:
+        "200":
+          description: Payment methods found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentMethodResponse'
+
+        "400":
+          description: Invalid request
+
+        "500":
+          description: Internal server error
+
+  /api/v1/payments:
+    post:
+      operationId: processPayment
+      summary: Process payment
+      description: Sends payment request to external payment provider
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+
+      responses:
+        "200":
+          description: Payment processed
+
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+
+        "400":
+          description: Invalid request
+
+        "404":
+          description: Payment method not found
+
+        "500":
+          description: Internal server error
+
+components:
+
+  schemas:
+
+    PaymentMethodResponse:
+      type: object
+
+      required:
+        - id
+        - name
+        - providerMethodType
+        - requiredFields
+
+      properties:
+
+        id:
+          type: integer
+          format: int64
+
+        name:
+          type: string
+
+        providerMethodType:
+          type: string
+
+        imageUrl:
+          type: string
+
+        requiredFields:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequiredField'
+
+    RequiredField:
+      type: object
+
+      required:
+        - uid
+        - name
+        - dataType
+
+      properties:
+
+        uid:
+          type: string
+          format: uuid
+
+        name:
+          type: string
+
+        description:
+          type: string
+
+        placeholder:
+          type: string
+
+        dataType:
+          type: string
+
+        validationType:
+          type: string
+
+        validationRule:
+          type: string
+
+        defaultValue:
+          type: string
+
+        valuesOptions:
+          type: array
+          items:
+            type: string
+
+    PaymentRequest:
+      type: object
+
+      required:
+        - internalTransactionUid
+        - methodId
+        - amount
+        - currency
+        - userFields
+
+      properties:
+
+        internalTransactionUid:
+          type: string
+          format: uuid
+
+        methodId:
+          type: integer
+          format: int64
+
+        amount:
+          type: number
+          format: double
+
+        currency:
+          type: string
+
+        userFields:
+          type: object
+          additionalProperties:
+            type: string
+
+    PaymentResponse:
+      type: object
+
+      required:
+        - providerTransactionId
+        - status
+
+      properties:
+
+        providerTransactionId:
+          type: string
+
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+
+    PaymentStatus:
+      type: string
+
+      enum:
+        - PENDING
+        - COMPLETED
+        - FAILED

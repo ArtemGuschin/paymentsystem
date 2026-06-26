@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Import(TestcontainersConfiguration.class)
-class TransactionIntegrationTest {
+class  TransactionIntegrationTest {
 
     @LocalServerPort
     private int port;

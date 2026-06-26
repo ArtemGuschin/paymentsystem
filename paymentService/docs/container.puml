@@ -1,0 +1,34 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_TOP_DOWN()
+
+Person(client, "User", "Пользователь системы")
+
+System_Boundary(paymentSystem, "Payment System") {
+
+    Container(individualsApi,"Individuals API","Spring Boot","Главный оркестратор пользовательских запросов")
+
+    Container(paymentService,"Payment Service","Spring Boot","Управление методами оплаты и проведение платежей")
+
+    Container(transactionService,"Transaction Service","Spring Boot","Управление жизненным циклом транзакций")
+
+    System_Ext(fakeProvider, "Fake Payment Provider", "External payment gateway")
+    ContainerDb(paymentDb,"Payment DB","PostgreSQL","Методы оплаты, платежи, настройки провайдеров")
+
+    ContainerDb(transactionDb,"Transaction DB","PostgreSQL","Транзакции и их статусы")
+}
+
+Rel(client, individualsApi, "REST API")
+
+Rel(individualsApi, paymentService,"Получение методов оплаты / Проведение платежа")
+
+Rel(individualsApi, transactionService,"Создание и обновление транзакций")
+
+Rel(paymentService, fakeProvider,"Инициирует платеж")
+
+Rel(paymentService, paymentDb,"CRUD платежей")
+
+Rel(transactionService, transactionDb, "CRUD транзакций")
+
+@enduml

@@ -1,0 +1,49 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_TOP_DOWN()
+
+Container_Boundary(paymentService, "Payment Service") {
+
+Component(paymentController,"PaymentController","REST Controller","Проведение платежей")
+
+Component(paymentMethodController, "PaymentMethodController","REST Controller","Получение методов оплаты")
+
+Component(paymentOrchestrationService, "PaymentOrchestrationService","Spring Service","Основная бизнес логика платежей")
+
+Component(paymentMethodService,"PaymentMethodService","Spring Service","Работа с методами оплаты")
+
+Component(paymentMapper,"PaymentMapper","Mapper","Entity ↔ DTO")
+
+Component(fakeProviderClient,"FakeProviderClient","Feign Client","Интеграция с внешним провайдером")
+
+Component(paymentRepository,"PaymentRepository","Spring Data JPA","CRUD платежей")
+
+Component(paymentMethodRepository,"PaymentMethodRepository","Spring Data JPA","Методы оплаты")
+
+Component(requiredFieldRepository, "RequiredFieldRepository","Spring Data JPA","Обязательные поля")
+
+Component(providerRepository,"PaymentProviderRepository","Spring Data JPA","Платежные провайдеры")
+}
+
+Rel(paymentController, paymentOrchestrationService, "uses")
+
+Rel(paymentMethodController, paymentMethodService, "uses")
+
+Rel(paymentOrchestrationService, paymentRepository, "CRUD")
+
+Rel(paymentOrchestrationService, paymentMethodRepository, "Получение метода оплаты")
+
+Rel(paymentOrchestrationService, fakeProviderClient, "Вызов провайдера")
+
+Rel(paymentOrchestrationService, paymentMapper, "Mapping")
+
+Rel(paymentMethodService, paymentMethodRepository, "Получение методов")
+
+Rel(paymentMethodService, requiredFieldRepository, "Получение required fields")
+
+Rel(paymentMethodService, providerRepository, "Получение провайдера")
+
+Rel(paymentMethodService, paymentMapper, "Mapping")
+
+@enduml

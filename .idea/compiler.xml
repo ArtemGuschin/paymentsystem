@@ -6,10 +6,9 @@
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.projectlombok/lombok/1.18.32/17d46b3e205515e1e8efd3ee4d57ce8018914163/lombok-1.18.32.jar" />
-          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.projectlombok/lombok-mapstruct-binding/0.2.0/2f1cf9ced7b720ba4996c942b816669e63f0fa4f/lombok-mapstruct-binding-0.2.0.jar" />
-          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.mapstruct/mapstruct-processor/1.6.3/52e345c907fbf173b376586c7f8b131d53fa5867/mapstruct-processor-1.6.3.jar" />
+          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.mapstruct/mapstruct-processor/1.5.5.Final/897f6f115930b936287bef552bf5fe28cc64717d/mapstruct-processor-1.5.5.Final.jar" />
         </processorPath>
-        <module name="transactionService.main" />
+        <module name="currencyRateService.main" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
@@ -21,6 +20,8 @@
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="TransactionService" options="-parameters" />
       <module name="com.artem.transactionService" options="-parameters" />
+      <module name="com.artem.transactionService.main" options="-parameters" />
+      <module name="com.artem.transactionService.test" options="-parameters" />
       <module name="com.artem.transactionService.transactionClient" options="-parameters" />
       <module name="currencyRateService" options="-parameters" />
       <module name="currencyRateService.main" options="-parameters" />

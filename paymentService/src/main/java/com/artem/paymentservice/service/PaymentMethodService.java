@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface PaymentMethodService {
 
-    List<PaymentMethodResponse> getPaymentMethods(
+    List<PaymentMethodResponse> getAvailablePaymentMethods(
             String currencyCode,
             String countryCode
     );

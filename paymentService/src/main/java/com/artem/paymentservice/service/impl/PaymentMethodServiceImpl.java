@@ -23,7 +23,7 @@ public class PaymentMethodServiceImpl
     private final PaymentMapper paymentMapper;
 
     @Override
-    public List<PaymentMethodResponse> getPaymentMethods(
+    public List<PaymentMethodResponse> getAvailablePaymentMethods(
             String currencyCode,
             String countryCode
     ) {

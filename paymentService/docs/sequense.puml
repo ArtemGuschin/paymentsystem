@@ -1,53 +1,79 @@
 @startuml
 
 actor Client
-participant IndividualsAPI
-participant PaymentService
-participant TransactionService
-participant FakeProvider
+
+participant "Individuals API" as IA
+participant "Transaction Service" as TS
+participant "Payment Service" as PS
+participant "Fake Payment Provider" as FP
 
 == Получение методов оплаты ==
 
-Client -> IndividualsAPI: GET available payment methods
-IndividualsAPI -> PaymentService: GET /payment-methods/{currencyCode}/{countryCode}
+Client -> IA : Запрос методов оплаты
 
-PaymentService -> TransactionService: Get transaction context
-TransactionService --> PaymentService: Transaction data
+IA -> PS : GET /payment-methods/{currency}/{country}
 
-PaymentService --> IndividualsAPI: Available payment methods
-IndividualsAPI --> Client: Payment methods response
+PS -> PS : Поиск методов оплаты в БД
 
-== Проведение платежа ==
+PS --> IA : Список методов + required fields
 
-Client -> IndividualsAPI: Create payment request
-IndividualsAPI -> PaymentService: POST /payments
+IA --> Client : Список методов оплаты
 
-PaymentService -> TransactionService: Create transaction (PENDING)
-TransactionService --> PaymentService: Transaction created
+== Создание платежа ==
 
-PaymentService -> FakeProvider: Initiate payment
+Client -> IA : Создать платеж
 
-alt Payment successful
+note right
+Пользователь уже выбрал
+метод оплаты и заполнил поля
+карты/QR/прочее
+end note
 
+IA -> TS : Создать транзакцию
 
-FakeProvider --> PaymentService: Provider transaction ID
+TS --> IA : transactionUid (PENDING)
 
-PaymentService -> TransactionService: Update transaction COMPLETED
-TransactionService --> PaymentService: Transaction updated
+IA -> PS : POST /payments
 
-PaymentService --> IndividualsAPI: Payment success response
-IndividualsAPI --> Client: Payment completed
+PS -> PS : Валидация данных
 
+PS -> PS : Сохранить Payment(PENDING)
 
-else Payment failed
-FakeProvider --> PaymentService: Payment failed error
+PS -> FP : Провести платеж
 
-PaymentService -> TransactionService: Update transaction FAILED
-TransactionService --> PaymentService: Transaction updated
+alt Успех
 
-PaymentService --> IndividualsAPI: Payment failed response
-IndividualsAPI --> Client: Payment failed
+FP --> PS : providerTransactionId
 
+PS -> PS : Payment(COMPLETED)
+
+PS --> IA : SUCCESS + providerTransactionId
+
+IA -> TS : Обновить транзакцию
+
+TS -> TS : status=COMPLETED
+
+TS -> TS : save providerTransactionId
+
+TS --> IA : OK
+
+IA --> Client : Платеж успешен
+
+else Ошибка провайдера
+
+FP --> PS : ERROR
+
+PS -> PS : Payment(FAILED)
+
+PS --> IA : FAILED
+
+IA -> TS : Компенсация
+
+TS -> TS : status=FAILED
+
+TS --> IA : OK
+
+IA --> Client : Ошибка платежа
 
 end
 

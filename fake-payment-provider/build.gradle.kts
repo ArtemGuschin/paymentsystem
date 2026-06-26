@@ -53,8 +53,10 @@ dependencies {
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.wiremock:wiremock-standalone:${wiremockStandaloneVersion}")
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:postgresql")
+//    testImplementation("org.testcontainers:junit-jupiter")
+//    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:testcontainers:2.0.2")
+    testImplementation("org.testcontainers:postgresql:1.20.6")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
