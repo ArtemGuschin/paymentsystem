@@ -1,0 +1,54 @@
+@startuml
+
+actor Client
+participant IndividualsAPI
+participant PaymentService
+participant TransactionService
+participant FakeProvider
+
+== Получение методов оплаты ==
+
+Client -> IndividualsAPI: GET available payment methods
+IndividualsAPI -> PaymentService: GET /payment-methods/{currencyCode}/{countryCode}
+
+PaymentService -> TransactionService: Get transaction context
+TransactionService --> PaymentService: Transaction data
+
+PaymentService --> IndividualsAPI: Available payment methods
+IndividualsAPI --> Client: Payment methods response
+
+== Проведение платежа ==
+
+Client -> IndividualsAPI: Create payment request
+IndividualsAPI -> PaymentService: POST /payments
+
+PaymentService -> TransactionService: Create transaction (PENDING)
+TransactionService --> PaymentService: Transaction created
+
+PaymentService -> FakeProvider: Initiate payment
+
+alt Payment successful
+
+
+FakeProvider --> PaymentService: Provider transaction ID
+
+PaymentService -> TransactionService: Update transaction COMPLETED
+TransactionService --> PaymentService: Transaction updated
+
+PaymentService --> IndividualsAPI: Payment success response
+IndividualsAPI --> Client: Payment completed
+
+
+else Payment failed
+FakeProvider --> PaymentService: Payment failed error
+
+PaymentService -> TransactionService: Update transaction FAILED
+TransactionService --> PaymentService: Transaction updated
+
+PaymentService --> IndividualsAPI: Payment failed response
+IndividualsAPI --> Client: Payment failed
+
+
+end
+
+@enduml
