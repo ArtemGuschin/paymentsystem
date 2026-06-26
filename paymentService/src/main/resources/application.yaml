@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: paymentService
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/payment_service
+    username: postgres
+    password: postgres
+    hikari:
+      initializationFailTimeout: 60000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+server:
+  port: 8083
+
+logging:
+  level:
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
