@@ -40,7 +40,7 @@ dependencies {
     implementation 'org.keycloak:keycloak-admin-client:24.0.2'
     implementation 'org.springframework:spring-tx'
     implementation 'com.artem:person-service-openapi:1.0.8'
-    implementation 'com.artem:payment-service-client:0.0.1-20260625.131148-1'
+    implementation 'com.artem:payment-service-client:0.0.1-20260629.090159-5'
     implementation 'com.artem:transaction-client:0.0.1-20260625.131012-1'
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign:4.1.3'
     implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.5.0'

@@ -19,6 +19,12 @@ spring:
 server:
   port: 8083
 
+payment-service:
+  url: http://localhost:8083
+  connect-timeout: 5s
+  read-timeout: 30s
+
+
 logging:
   level:
     org.springframework.web: DEBUG

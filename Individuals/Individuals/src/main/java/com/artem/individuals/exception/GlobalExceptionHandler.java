@@ -29,4 +29,20 @@ public class GlobalExceptionHandler {
         body.put("status", HttpStatus.BAD_REQUEST.value());
         return Mono.just(ResponseEntity.badRequest().body(body));
     }
+
+    @ExceptionHandler(TopUpOrchestrationException.class)
+    public Mono<ResponseEntity<Map<String, Object>>> handleTopUpException(
+            TopUpOrchestrationException ex) {
+
+        Map<String, Object> body = new LinkedHashMap<>();
+
+        body.put("error", ex.getMessage());
+        body.put("status", HttpStatus.BAD_GATEWAY.value());
+
+        return Mono.just(
+                ResponseEntity
+                        .status(HttpStatus.BAD_GATEWAY)
+                        .body(body)
+        );
+    }
 }

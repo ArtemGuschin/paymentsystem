@@ -1,5 +1,6 @@
 package com.artem.individuals.dto.request;
 
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -7,28 +8,28 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class TopUpConfirmRequestDto {
+public class PaymentRequestDto {
+
     @NotNull
-    private UUID userUid;
+    private UUID internalTransactionUid;
+
     @NotNull
-    private UUID walletUid;
+    private Long methodId;
+
     @NotNull
-    private BigDecimal amount;
-    
-    private String comment;
-    @NotNull
-    private Long paymentMethodId;
+    private Double amount;
+
     @NotBlank
     private String currency;
+
     @NotNull
-    private Map<String, String> paymentFields;
+    private Map<String, String> userFields;
 
 }

@@ -35,6 +35,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
+
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.flywaydb:flyway-core")
     implementation("io.swagger.core.v3:swagger-annotations:${swaggerAnnotationsVersion}")
@@ -65,7 +67,10 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 openApiGenerate {
-    generatorName.set("spring")
+
+    generatorName.set("java")
+
+    library.set("webclient")
 
     inputSpec.set(file("src/main/resources/api/openapi.yaml").absolutePath)
 
@@ -79,12 +84,10 @@ openApiGenerate {
 
     configOptions.set(
         mapOf(
-            "interfaceOnly" to "true",
-            "useSpringBoot3" to "true",
-            "useTags" to "true",
             "dateLibrary" to "java8",
             "serializationLibrary" to "jackson",
-            "openApiNullable" to "false"
+            "openApiNullable" to "false",
+            "useJakartaEe" to "true"
         )
     )
 }
@@ -101,8 +104,7 @@ tasks.register<Jar>("clientJar") {
     archiveClassifier.set("")
 
     from(sourceSets.main.get().output) {
-        include("com/artem/paymentservice/api/**")
-        include("com/artem/paymentservice/dto/**")
+        include("com/artem/paymentservice/**")
     }
 
     dependsOn(tasks.compileJava)
@@ -111,7 +113,10 @@ tasks.register<Jar>("clientJar") {
 
 tasks.register<Jar>("sourcesJar") {
     archiveClassifier.set("sources")
-    from(sourceSets.main.get().allSource)
+
+    from("src/main/java")
+    from(layout.buildDirectory.dir("generated/src/main/java"))
+
     dependsOn(tasks.openApiGenerate)
 }
 

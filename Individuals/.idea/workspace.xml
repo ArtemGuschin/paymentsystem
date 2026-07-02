@@ -4,7 +4,31 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f22228fb-12bc-4b02-b52a-8502def1146a" name="Changes" comment="add dependensies" />
+    <list default="true" id="f22228fb-12bc-4b02-b52a-8502def1146a" name="Changes" comment="add dependensies">
+      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/dto/request/PaymentRequestDto.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/dto/response/PaymentMethodResponseDto.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/dto/response/PaymentResponseDto.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/dto/response/RequiredFieldDto.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/dto/response/TopUpResultResponseDto.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/exception/TopUpOrchestrationException.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/mapper/PaymentMapper.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/rest/PaymentControllerV1.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/service/PaymentService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/service/TopUpOrchestrationService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../paymentService/src/main/java/com/artem/paymentservice/client/PaymentClient.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../paymentService/src/main/java/com/artem/paymentservice/client/PaymentClientConfiguration.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../paymentService/src/main/java/com/artem/paymentservice/client/PaymentClientImpl.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../paymentService/src/main/java/com/artem/paymentservice/client/PaymentClientProperties.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../paymentService/src/main/java/com/artem/paymentservice/exception/PaymentClientException.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Individuals/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/Individuals/build.gradle" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/dto/request/TopUpConfirmRequestDto.java" beforeDir="false" afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/dto/request/TopUpConfirmRequestDto.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/exception/GlobalExceptionHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/exception/GlobalExceptionHandler.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/rest/Test.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/rest/TopUpControllerV1.java" beforeDir="false" afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/rest/TopUpControllerV1.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../paymentService/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/../paymentService/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../paymentService/src/main/resources/application.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../paymentService/src/main/resources/application.yaml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -94,6 +118,7 @@
     &quot;Docker.Individuals: Compose Deployment.executor&quot;: &quot;Run&quot;,
     &quot;Gradle.Build Individuals.executor&quot;: &quot;Run&quot;,
     &quot;Gradle.Download Sources.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.Individuals [:com.artem.individuals.rest.Test.main()].executor&quot;: &quot;Run&quot;,
     &quot;Gradle.Individuals [build].executor&quot;: &quot;Run&quot;,
     &quot;Gradle.Individuals [clean].executor&quot;: &quot;Run&quot;,
     &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
@@ -126,28 +151,19 @@
       <recent name="C:\Users\art69\IdeaProjects\paymentsystem\Individuals\Individuals" />
     </key>
   </component>
-  <component name="RunManager" selected="Docker.Individuals.individuals-api: Compose Deployment">
-    <configuration name="Individuals [build]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
-      <ExternalSystemSettings>
-        <option name="executionName" />
-        <option name="externalProjectPath" value="$PROJECT_DIR$/Individuals" />
-        <option name="externalSystemIdString" value="GRADLE" />
-        <option name="scriptParameters" />
-        <option name="taskDescriptions">
-          <list />
-        </option>
-        <option name="taskNames">
-          <list>
-            <option value="build" />
-          </list>
-        </option>
-        <option name="vmOptions" />
-      </ExternalSystemSettings>
-      <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
-      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
-      <DebugAllEnabled>false</DebugAllEnabled>
-      <RunAsTest>false</RunAsTest>
-      <method v="2" />
+  <component name="RunManager" selected="Application.Test">
+    <configuration name="Test" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="com.artem.individuals.rest.Test" />
+      <module name="Individuals.main" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="com.artem.individuals.rest.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
     </configuration>
     <configuration name="IndividualsApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
       <module name="Individuals.main" />
@@ -211,11 +227,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Application.Test" />
         <item itemvalue="Docker.Individuals.individuals-api: Compose Deployment" />
         <item itemvalue="Docker.Individuals.person-service: Compose Deployment" />
         <item itemvalue="Docker.Individuals.keycloak: Compose Deployment" />
         <item itemvalue="Docker.Individuals: Compose Deployment" />
-        <item itemvalue="Gradle.Individuals [build]" />
       </list>
     </recent_temporary>
   </component>
@@ -238,7 +254,7 @@
       <workItem from="1782292797000" duration="1863000" />
       <workItem from="1782296254069" duration="4177000" />
       <workItem from="1782301898177" duration="20000" />
-      <workItem from="1782301941284" duration="9068000" />
+      <workItem from="1782301941284" duration="25185000" />
     </task>
     <task id="LOCAL-00001" summary="add dependensies">
       <option name="closed" value="true" />
