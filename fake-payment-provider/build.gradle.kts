@@ -63,6 +63,31 @@ dependencies {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+//openApiGenerate {
+//
+//    generatorName.set("java")
+//
+//    library.set("webclient")
+//
+//    inputSpec.set(file("src/main/resources/api/openapi.yaml").absolutePath)
+//
+//    outputDir.set(layout.buildDirectory.dir("generated").get().asFile.absolutePath)
+//
+//    apiPackage.set("com.artem.fakepaymentprovider.api")
+//    modelPackage.set("com.artem.fakepaymentprovider.dto")
+//
+//    generateApiTests.set(false)
+//    generateModelTests.set(false)
+//
+//    configOptions.set(
+//        mapOf(
+//            "dateLibrary" to "java8",
+//            "serializationLibrary" to "jackson",
+//            "openApiNullable" to "false",
+//            "useJakartaEe" to "true"
+//        )
+//    )
+//}
 
 openApiGenerate {
     generatorName.set("spring")

@@ -4,30 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f22228fb-12bc-4b02-b52a-8502def1146a" name="Changes" comment="add dependensies">
-      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/dto/request/PaymentRequestDto.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/dto/response/PaymentMethodResponseDto.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/dto/response/PaymentResponseDto.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/dto/response/RequiredFieldDto.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/dto/response/TopUpResultResponseDto.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/exception/TopUpOrchestrationException.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/mapper/PaymentMapper.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/rest/PaymentControllerV1.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/service/PaymentService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/service/TopUpOrchestrationService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../paymentService/src/main/java/com/artem/paymentservice/client/PaymentClient.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../paymentService/src/main/java/com/artem/paymentservice/client/PaymentClientConfiguration.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../paymentService/src/main/java/com/artem/paymentservice/client/PaymentClientImpl.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../paymentService/src/main/java/com/artem/paymentservice/client/PaymentClientProperties.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../paymentService/src/main/java/com/artem/paymentservice/exception/PaymentClientException.java" afterDir="false" />
+    <list default="true" id="f22228fb-12bc-4b02-b52a-8502def1146a" name="Changes" comment="add new">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Individuals/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/Individuals/build.gradle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/dto/request/TopUpConfirmRequestDto.java" beforeDir="false" afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/dto/request/TopUpConfirmRequestDto.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/exception/GlobalExceptionHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/exception/GlobalExceptionHandler.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/rest/Test.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/rest/TopUpControllerV1.java" beforeDir="false" afterPath="$PROJECT_DIR$/Individuals/src/main/java/com/artem/individuals/rest/TopUpControllerV1.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../paymentService/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/../paymentService/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../paymentService/src/main/resources/application.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../paymentService/src/main/resources/application.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../fake-payment-provider/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/../fake-payment-provider/build.gradle.kts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -101,6 +80,9 @@
   <component name="KubernetesApiProvider">{
   &quot;isMigrated&quot;: true
 }</component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;customColor&quot;: &quot;&quot;,
   &quot;associatedIndex&quot;: 4
@@ -254,7 +236,7 @@
       <workItem from="1782292797000" duration="1863000" />
       <workItem from="1782296254069" duration="4177000" />
       <workItem from="1782301898177" duration="20000" />
-      <workItem from="1782301941284" duration="25185000" />
+      <workItem from="1782301941284" duration="27076000" />
     </task>
     <task id="LOCAL-00001" summary="add dependensies">
       <option name="closed" value="true" />
@@ -264,7 +246,15 @@
       <option name="project" value="LOCAL" />
       <updated>1782465861044</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="add new">
+      <option name="closed" value="true" />
+      <created>1782984731192</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1782984731192</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -272,6 +262,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="add dependensies" />
-    <option name="LAST_COMMIT_MESSAGE" value="add dependensies" />
+    <MESSAGE value="add new" />
+    <option name="LAST_COMMIT_MESSAGE" value="add new" />
   </component>
 </project>
