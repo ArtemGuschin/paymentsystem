@@ -38,10 +38,7 @@ public class TransactionService {
     @Transactional
     public Transaction create(TransactionRequest transactionRequest) {
 
-        String merchantId = getCurrentMerchantId();
-
-        MerchantEntity merchant = merchantRepository.findByMerchantId(merchantId)
-                .orElseThrow(() -> new RuntimeException("Merchant not found"));
+        MerchantEntity merchant = getCurrentMerchant();
 
         if (transactionRequest.getExternalId() != null) {
             Optional<TransactionEntity> existing =
@@ -74,10 +71,7 @@ public class TransactionService {
     @Transactional(readOnly = true)
     public Transaction getById(Long id) {
 
-        String merchantId = getCurrentMerchantId();
-
-        MerchantEntity merchant = merchantRepository.findByMerchantId(merchantId)
-                .orElseThrow(() -> new RuntimeException("Merchant not found"));
+        MerchantEntity merchant = getCurrentMerchant();
 
         return transactionRepository.findById(id)
                 .filter(tx -> tx.getMerchant().getId().equals(merchant.getId()))
@@ -89,10 +83,7 @@ public class TransactionService {
     @Transactional(readOnly = true)
     public List<Transaction> getAll(OffsetDateTime startDate, OffsetDateTime endDate) {
 
-        String merchantId = getCurrentMerchantId();
-
-        MerchantEntity merchant = merchantRepository.findByMerchantId(merchantId)
-                .orElseThrow(() -> new RuntimeException("Merchant not found"));
+        MerchantEntity merchant = getCurrentMerchant();
 
         return transactionRepository
                 .findByMerchant_IdAndCreatedAtBetween(
@@ -106,10 +97,25 @@ public class TransactionService {
     }
 
 
-    private String getCurrentMerchantId() {
-        return SecurityContextHolder.getContext()
+    private MerchantEntity getCurrentMerchant() {
+
+        String principal = SecurityContextHolder
+                .getContext()
                 .getAuthentication()
                 .getName();
+
+        // вызов пришел от PaymentService
+        if ("payment-service".equals(principal)) {
+
+            return merchantRepository.findByMerchantId("merchant_001")
+                    .orElseThrow(() ->
+                            new RuntimeException("Service merchant not found"));
+        }
+
+        // обычный вызов по Basic Auth
+        return merchantRepository.findByMerchantId(principal)
+                .orElseThrow(() ->
+                        new RuntimeException("Merchant not found"));
     }
 
     private void processAsync(TransactionEntity tx) {
@@ -128,6 +134,7 @@ public class TransactionService {
             }
         }).start();
     }
+
     private void sendWebhook(TransactionEntity tx) {
 
         if (tx.getNotificationUrl() == null) {

@@ -1,6 +1,7 @@
 package com.artem.paymentservice.controller;
 
-import com.artem.paymentservice.api.DefaultApi;
+
+import com.artem.paymentservice.api.PaymentsApi;
 import com.artem.paymentservice.dto.PaymentRequest;
 import com.artem.paymentservice.dto.PaymentResponse;
 import com.artem.paymentservice.service.PaymentMethodService;
@@ -15,16 +16,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/payments")
-public class PaymentControllerV1 {
+public class PaymentControllerV1  implements PaymentsApi {
 
     private final PaymentService paymentService;
 
-    @PostMapping
-    public ResponseEntity<PaymentResponse>
-    processPayment(
-            @RequestBody @Valid PaymentRequest request
-    ) {
+    @Override
+    public ResponseEntity<PaymentResponse> processPayment(
+            PaymentRequest request) {
 
         return ResponseEntity.ok(
                 paymentService.processPayment(request)

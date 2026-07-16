@@ -1,5 +1,7 @@
 package com.artem.paymentservice.integration;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
@@ -15,8 +17,7 @@ import com.artem.paymentservice.repository.PaymentMethodDefinitionRepository;
 import com.artem.paymentservice.repository.PaymentMethodRepository;
 import com.artem.paymentservice.repository.PaymentMethodRequiredFieldRepository;
 import com.artem.paymentservice.repository.PaymentProviderRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.test.web.servlet.MockMvc;
