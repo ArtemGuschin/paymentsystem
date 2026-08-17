@@ -54,9 +54,11 @@ springdoc:
     path: /swagger-ui.html
 
 
+payment-service:
+  url: http://localhost:8083
 
-
-
+auth-service:
+  url: http://localhost:9090
 
 
 

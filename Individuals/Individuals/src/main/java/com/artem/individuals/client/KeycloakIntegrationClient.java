@@ -2,6 +2,7 @@ package com.artem.individuals.client;
 
 import com.artem.individuals.dto.request.RegistrationRequest;
 import com.artem.individuals.dto.response.KeycloakTokenResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import com.artem.individuals.dto.response.TokenResponse;
 import com.artem.individuals.dto.response.UserResponse;
 import jakarta.ws.rs.core.Response;
@@ -11,6 +12,7 @@ import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -27,11 +29,18 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class KeycloakIntegrationClient {
 
     private final Keycloak keycloak;
     private final WebClient webClient;
+
+    public KeycloakIntegrationClient(
+            Keycloak keycloak,
+            @Qualifier("authWebClient") WebClient webClient
+    ) {
+        this.keycloak = keycloak;
+        this.webClient = webClient;
+    }
 
     @Value("${keycloak.realm}")
     private String realm;
@@ -92,7 +101,6 @@ public class KeycloakIntegrationClient {
             return null;
         }).subscribeOn(Schedulers.boundedElastic()).then();
     }
-
 
 
     public Mono<TokenResponse> loginUser(String email, String password) {

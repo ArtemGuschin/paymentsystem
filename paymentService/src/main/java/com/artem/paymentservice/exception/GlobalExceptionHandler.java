@@ -1,6 +1,5 @@
 package com.artem.paymentservice.exception;
 
-
 import com.artem.paymentservice.dto.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +16,16 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler(PaymentProviderUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentProviderUnavailable(
+            PaymentProviderUnavailableException ex
+    ) {
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_GATEWAY)
                 .body(new ErrorResponse(ex.getMessage()));
     }
 

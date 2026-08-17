@@ -40,10 +40,12 @@ public class SecurityConfig {
                                 "/v1/auth/registration",
                                 "/v1/auth/login",
                                 "/v1/auth/refresh-token"
+
                         ).permitAll()
 
                         .pathMatchers(HttpMethod.GET, "/v1/auth/me").hasAnyRole("user", "admin")
                         .pathMatchers("/v1/admin/**").hasRole("admin")
+                        .pathMatchers("/api/v1/payments/**").permitAll()
 
                         .anyExchange().authenticated()
                 )

@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
@@ -15,24 +16,43 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResponseStatusException.class)
-    public Mono<ResponseEntity<Map<String, Object>>> handleResponseStatusException(ResponseStatusException ex) {
+    public Mono<ResponseEntity<Map<String, Object>>> handleResponseStatusException(
+            ResponseStatusException ex
+    ) {
+
         Map<String, Object> body = new LinkedHashMap<>();
+
         body.put("error", ex.getReason());
         body.put("status", ex.getStatusCode().value());
-        return Mono.just(ResponseEntity.status(ex.getStatusCode()).body(body));
+
+        return Mono.just(
+                ResponseEntity
+                        .status(ex.getStatusCode())
+                        .body(body)
+        );
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public Mono<ResponseEntity<Map<String, Object>>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+    public Mono<ResponseEntity<Map<String, Object>>> handleValidationExceptions(
+            MethodArgumentNotValidException ex
+    ) {
+
         Map<String, Object> body = new LinkedHashMap<>();
+
         body.put("error", "Validation error");
         body.put("status", HttpStatus.BAD_REQUEST.value());
-        return Mono.just(ResponseEntity.badRequest().body(body));
+
+        return Mono.just(
+                ResponseEntity
+                        .badRequest()
+                        .body(body)
+        );
     }
 
     @ExceptionHandler(TopUpOrchestrationException.class)
     public Mono<ResponseEntity<Map<String, Object>>> handleTopUpException(
-            TopUpOrchestrationException ex) {
+            TopUpOrchestrationException ex
+    ) {
 
         Map<String, Object> body = new LinkedHashMap<>();
 
@@ -42,6 +62,23 @@ public class GlobalExceptionHandler {
         return Mono.just(
                 ResponseEntity
                         .status(HttpStatus.BAD_GATEWAY)
+                        .body(body)
+        );
+    }
+
+    @ExceptionHandler(WebClientResponseException.class)
+    public Mono<ResponseEntity<Map<String, Object>>> handleWebClientResponseException(
+            WebClientResponseException ex
+    ) {
+
+        Map<String, Object> body = new LinkedHashMap<>();
+
+        body.put("error", "Payment service request failed");
+        body.put("status", ex.getStatusCode().value());
+
+        return Mono.just(
+                ResponseEntity
+                        .status(ex.getStatusCode())
                         .body(body)
         );
     }

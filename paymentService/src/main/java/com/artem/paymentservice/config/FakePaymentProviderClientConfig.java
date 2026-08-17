@@ -4,22 +4,26 @@ import com.artem.fakepaymentprovider.client.ApiClient;
 import com.artem.fakepaymentprovider.client.api.PayoutsApi;
 import com.artem.fakepaymentprovider.client.api.TransactionsApi;
 import com.artem.fakepaymentprovider.client.api.WebhooksApi;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@RequiredArgsConstructor
 public class FakePaymentProviderClientConfig {
+
+    private final FakePaymentProviderProperties properties;
 
     @Bean
     public ApiClient apiClient() {
 
         ApiClient apiClient = new ApiClient();
 
-        apiClient.setBasePath("http://localhost:8888");
+        apiClient.setBasePath(properties.getBaseUrl());
 
         apiClient.addDefaultHeader(
                 "X-Service-Token",
-                "payment-service-secret"
+                properties.getServiceToken()
         );
 
         return apiClient;

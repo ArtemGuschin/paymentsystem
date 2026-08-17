@@ -1,12 +1,14 @@
 package com.artem.individuals.service;
 
+import com.artem.individuals.client.PaymentClient;
 import com.artem.individuals.dto.request.PaymentRequestDto;
 import com.artem.individuals.dto.response.PaymentMethodResponseDto;
 import com.artem.individuals.dto.response.PaymentResponseDto;
 import com.artem.individuals.mapper.PaymentMapper;
-import com.artem.paymentservice.client.PaymentClient;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 

@@ -19,9 +19,12 @@ spring:
 server:
   port: 8888
 
+service-token:
+  header-name: X-Service-Token
+  token: ${SERVICE_TOKEN:payment-service-secret}
+
 
 logging:
   level:
-    org.springframework.web: DEBUG
-    org.springframework.security: DEBUG
+    org.springframework.security: TRACE
 

@@ -16,6 +16,7 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
 server:
   port: 8083
 
@@ -24,6 +25,9 @@ payment-service:
   connect-timeout: 5s
   read-timeout: 30s
 
+fake-payment-provider:
+  base-url: ${FAKE_PAYMENT_PROVIDER_URL:http://localhost:8888}
+  service-token: ${FAKE_PAYMENT_PROVIDER_SERVICE_TOKEN:payment-service-secret}
 
 logging:
   level:

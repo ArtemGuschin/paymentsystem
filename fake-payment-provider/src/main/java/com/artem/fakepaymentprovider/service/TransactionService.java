@@ -125,6 +125,7 @@ public class TransactionService {
 
                 tx.setStatus("SUCCESS");
                 tx.setUpdatedAt(Instant.now());
+                
                 transactionRepository.save(tx);
 
                 sendWebhook(tx);

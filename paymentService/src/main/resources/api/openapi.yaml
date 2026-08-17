@@ -217,5 +217,5 @@ components:
 
       enum:
         - PENDING
-        - COMPLETED
+        - SUCCESS
         - FAILED
