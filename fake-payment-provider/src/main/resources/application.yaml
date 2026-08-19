@@ -16,15 +16,15 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
 server:
   port: 8888
 
-service-token:
-  header-name: X-Service-Token
-  token: ${SERVICE_TOKEN:payment-service-secret}
-
+fake-payment-provider:
+  security:
+    username: ${FAKE_PAYMENT_PROVIDER_USERNAME:payment-service}
+    password: ${FAKE_PAYMENT_PROVIDER_PASSWORD:payment-service-secret}
 
 logging:
   level:
     org.springframework.security: TRACE
-

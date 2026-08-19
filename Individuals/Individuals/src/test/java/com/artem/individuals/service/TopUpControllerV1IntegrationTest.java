@@ -68,7 +68,7 @@ public class TopUpControllerV1IntegrationTest extends TestContainersConfig {
         RegistrationRequest regRequest = new RegistrationRequest();
         regRequest.setEmail("topup2@test.com");
         regRequest.setPassword("password123");
-        regRequest.setFirstName("Test");
+         regRequest.setFirstName("Test");
         regRequest.setLastName("User");
         regRequest.setRole("user");
 

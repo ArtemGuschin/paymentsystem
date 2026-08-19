@@ -19,11 +19,16 @@ public class FakePaymentProviderClientConfig {
 
         ApiClient apiClient = new ApiClient();
 
-        apiClient.setBasePath(properties.getBaseUrl());
+        apiClient.setBasePath(
+                properties.getBaseUrl()
+        );
 
-        apiClient.addDefaultHeader(
-                "X-Service-Token",
-                properties.getServiceToken()
+        apiClient.setUsername(
+                properties.getUsername()
+        );
+
+        apiClient.setPassword(
+                properties.getPassword()
         );
 
         return apiClient;

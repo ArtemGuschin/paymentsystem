@@ -1,6 +1,5 @@
 package com.artem.paymentservice.config;
 
-
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -12,6 +11,7 @@ public class FakePaymentProviderProperties {
 
     private String baseUrl;
 
-    private String serviceToken;
+    private String username;
 
+    private String password;
 }

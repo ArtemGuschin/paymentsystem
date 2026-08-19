@@ -27,7 +27,8 @@ payment-service:
 
 fake-payment-provider:
   base-url: ${FAKE_PAYMENT_PROVIDER_URL:http://localhost:8888}
-  service-token: ${FAKE_PAYMENT_PROVIDER_SERVICE_TOKEN:payment-service-secret}
+  username: ${FAKE_PAYMENT_PROVIDER_USERNAME:payment-service}
+  password: ${FAKE_PAYMENT_PROVIDER_PASSWORD:payment-service-secret}
 
 logging:
   level:
