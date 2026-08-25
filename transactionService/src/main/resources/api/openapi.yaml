@@ -144,7 +144,7 @@ paths:
   /topup/confirm:
     post:
       operationId: confirmTopUp
-      summary: Подтверждение пополнения
+      summary: Подтверждение пополнения и создание PENDING транзакции
       tags: [TopUp]
       requestBody:
         required: true
@@ -159,6 +159,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TopUpConfirmResponse'
+        '400':
+          description: Ошибка валидации
+        '404':
+          description: Кошелёк не найден
+
+  /topup/{transactionUid}/complete:
+    post:
+      operationId: completeTopUp
+      summary: Завершение пополнения после успешной оплаты
+      tags: [TopUp]
+      parameters:
+        - name: transactionUid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopUpCompleteRequest'
+      responses:
+        '200':
+          description: Пополнение успешно завершено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopUpResultResponse'
+        '404':
+          description: Транзакция не найдена
+        '409':
+          description: Некорректный переход состояния транзакции
+
+  /topup/{transactionUid}/fail:
+    post:
+      operationId: failTopUp
+      summary: Завершение пополнения после неуспешной оплаты
+      tags: [TopUp]
+      parameters:
+        - name: transactionUid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopUpFailRequest'
+      responses:
+        '200':
+          description: Пополнение отклонено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopUpResultResponse'
+        '404':
+          description: Транзакция не найдена
+        '409':
+          description: Некорректный переход состояния транзакции
 
   /withdrawal/init:
     post:
@@ -249,7 +313,10 @@ components:
 
     CreateWalletRequest:
       type: object
-      required: [userUid, name, walletTypeUid]
+      required:
+        - userUid
+        - name
+        - walletTypeUid
       properties:
         userUid:
           type: string
@@ -279,6 +346,7 @@ components:
           type: string
         userUid:
           type: string
+          format: uuid
         balance:
           type: number
         status:
@@ -296,7 +364,10 @@ components:
 
     TopUpInitRequest:
       type: object
-      required: [userUid, walletUid, amount]
+      required:
+        - userUid
+        - walletUid
+        - amount
       properties:
         userUid:
           type: string
@@ -323,7 +394,10 @@ components:
 
     TopUpConfirmRequest:
       type: object
-      required: [userUid, walletUid, amount]
+      required:
+        - userUid
+        - walletUid
+        - amount
       properties:
         userUid:
           type: string
@@ -344,11 +418,52 @@ components:
           format: uuid
         status:
           type: string
+          enum:
+            - PENDING
           example: PENDING
+
+    TopUpCompleteRequest:
+      type: object
+      required:
+        - providerTransactionId
+      properties:
+        providerTransactionId:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    TopUpFailRequest:
+      type: object
+      properties:
+        failureReason:
+          type: string
+          maxLength: 256
+
+    TopUpResultResponse:
+      type: object
+      required:
+        - transactionUid
+        - status
+      properties:
+        transactionUid:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - PENDING
+            - COMPLETED
+            - FAILED
+        providerTransactionId:
+          type: string
+          maxLength: 100
 
     WithdrawalInitRequest:
       type: object
-      required: [userUid, walletUid, amount]
+      required:
+        - userUid
+        - walletUid
+        - amount
       properties:
         userUid:
           type: string
@@ -375,7 +490,10 @@ components:
 
     WithdrawalConfirmRequest:
       type: object
-      required: [userUid, walletUid, amount]
+      required:
+        - userUid
+        - walletUid
+        - amount
       properties:
         userUid:
           type: string
@@ -400,7 +518,11 @@ components:
 
     TransferInitRequest:
       type: object
-      required: [userUid, walletUid, targetWalletUid, amount]
+      required:
+        - userUid
+        - walletUid
+        - targetWalletUid
+        - amount
       properties:
         userUid:
           type: string
@@ -430,7 +552,11 @@ components:
 
     TransferConfirmRequest:
       type: object
-      required: [userUid, walletUid, targetWalletUid, amount]
+      required:
+        - userUid
+        - walletUid
+        - targetWalletUid
+        - amount
       properties:
         userUid:
           type: string

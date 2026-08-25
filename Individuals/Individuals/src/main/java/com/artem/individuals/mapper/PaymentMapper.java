@@ -32,10 +32,19 @@ public class PaymentMapper {
     /**
      * PaymentService -> Individuals
      */
-    public PaymentResponseDto toPaymentResponseDto(PaymentResponse response) {
+    public PaymentResponseDto toPaymentResponseDto(
+            PaymentResponse response
+    ) {
 
         return PaymentResponseDto.builder()
-                .providerTransactionId(response.getProviderTransactionId())
+                .providerTransactionId(
+                        response.getProviderTransactionId()
+                )
+                .status(
+                        response.getStatus() != null
+                                ? response.getStatus().getValue()
+                                : null
+                )
                 .build();
     }
 

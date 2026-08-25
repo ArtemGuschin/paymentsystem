@@ -2,11 +2,9 @@ package com.artem.individuals.service;
 
 import com.artem.individuals.dto.request.CreateWalletRequestDto;
 import com.artem.individuals.dto.response.WalletResponseDto;
-
 import com.artem.transaction.client.api.WalletsApi;
 import com.artem.transaction.client.model.CreateWalletRequest;
 import com.artem.transaction.client.model.WalletResponse;
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -27,19 +25,15 @@ public class WalletService {
                 .name(dto.getName())
                 .walletTypeUid(dto.getWalletTypeUid());
 
-
         return Mono.fromCallable(() -> walletsApi.createWallet(request))
                 .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
                 .map(this::map);
-
-
     }
 
     public Mono<WalletResponseDto> get(UUID walletUid) {
         return Mono.fromCallable(() -> walletsApi.getWalletByUid(walletUid))
                 .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
                 .map(this::map);
-
     }
 
     public List<WalletResponseDto> getByUser(UUID userUid) {
@@ -53,19 +47,26 @@ public class WalletService {
         walletsApi.archiveWallet(walletUid);
     }
 
-
     private WalletResponseDto map(WalletResponse response) {
         return WalletResponseDto.builder()
                 .walletUid(response.getUid())
                 .name(response.getName())
-                .userUid(UUID.fromString(response.getUserUid()))
+                .userUid(response.getUserUid())
                 .walletTypeUid(
                         response.getWalletType() != null
                                 ? response.getWalletType().getUid()
                                 : null
                 )
-                .walletTypeName(response.getWalletType().getName())
-                .walletTypeCurrencyCode(response.getWalletType().getCurrencyCode())
+                .walletTypeName(
+                        response.getWalletType() != null
+                                ? response.getWalletType().getName()
+                                : null
+                )
+                .walletTypeCurrencyCode(
+                        response.getWalletType() != null
+                                ? response.getWalletType().getCurrencyCode()
+                                : null
+                )
                 .balance(response.getBalance())
                 .status(response.getStatus())
                 .build();

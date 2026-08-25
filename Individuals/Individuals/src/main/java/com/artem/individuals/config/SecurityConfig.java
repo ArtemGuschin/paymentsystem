@@ -60,48 +60,44 @@ public class SecurityConfig {
     }
 
     private Converter<Jwt, Mono<AbstractAuthenticationToken>> jwtAuthConverter() {
+
         return jwt -> {
-            try {
-                List<String> roles = jwt.getClaim("roles");
 
-                Collection<GrantedAuthority> authorities = roles.stream()
-                        .map(role -> new SimpleGrantedAuthority(role))
-                        .collect(Collectors.toList());
+            Collection<GrantedAuthority> authorities =
+                    new ArrayList<>();
 
-                return Mono.just(new JwtAuthenticationToken(jwt, authorities));
-            } catch (Exception e) {
-                return Mono.error(new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Invalid token structure", e));
+            Map<String, Object> realmAccess =
+                    jwt.getClaim("realm_access");
+
+            if (realmAccess != null) {
+
+                Object rolesObject =
+                        realmAccess.get("roles");
+
+                if (rolesObject instanceof List<?> roles) {
+
+                    for (Object role : roles) {
+
+                        if (role instanceof String roleName) {
+
+                            authorities.add(
+                                    new SimpleGrantedAuthority(
+                                            "ROLE_" + roleName.toUpperCase()
+                                    )
+                            );
+                        }
+                    }
+                }
             }
+
+            return Mono.just(
+                    new JwtAuthenticationToken(
+                            jwt,
+                            authorities
+                    )
+            );
         };
     }
-//@Bean
-//public Converter<Jwt, ? extends Mono<? extends AbstractAuthenticationToken>> jwtAuthConverter() {
-//
-//    JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter =
-//            new JwtGrantedAuthoritiesConverter();
-//
-//    grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
-//    grantedAuthoritiesConverter.setAuthoritiesClaimName("realm_access.roles");
-//
-//    ReactiveJwtAuthenticationConverter converter =
-//            new ReactiveJwtAuthenticationConverter();
-//
-//    converter.setJwtGrantedAuthoritiesConverter(jwt -> {
-//        Collection<GrantedAuthority> authorities = new ArrayList<>();
-//
-//        Map<String, Object> realmAccess = jwt.getClaim("realm_access");
-//        if (realmAccess != null && realmAccess.containsKey("roles")) {
-//            List<String> roles = (List<String>) realmAccess.get("roles");
-//            roles.forEach(role ->
-//                    authorities.add(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-//            );
-//        }
-//
-//        return Flux.fromIterable(authorities);
-//    });
-//
-//    return converter;
-//}
+
 
 }

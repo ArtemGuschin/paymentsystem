@@ -39,6 +39,10 @@ public class Transaction {
     @Column(nullable = false, length = 32)
     private String status;
 
+
+    @Column(name = "provider_transaction_id", length = 100)
+    private String providerTransactionId;
+
     @Column(length = 256)
     private String comment;
 
