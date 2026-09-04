@@ -1,58 +1,123 @@
 services:
-  individuals-api:
-    build:
-      context: .
-      args:
-        - NEXUS_URL=http://host.docker.internal:8081/repository/maven-public/
-    ports:
-      - "9090:9092"
-    environment:
-      - PERSON_SERVICE_URL=http://person-service:8081
-      - KEYCLOAK_SERVER_URL=http://keycloak:8080
-    networks:
-      - individuals-net
-    depends_on:
-      - person-service
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
-  person-service:
-    image: sonatype/nexus3
+  individuals-payment-db:
+    image: postgres:15
+    container_name: individuals-payment-db
+    environment:
+      POSTGRES_DB: payment_service
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
-      - "8081:8081"
-    networks:
-      - individuals-net
+      - "5434:5432"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/service/metrics/ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d payment_service"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  individuals-provider-db:
+    image: postgres:15
+    container_name: individuals-provider-db
+    environment:
+      POSTGRES_DB: fake_provider
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fake_provider"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  fake-payment-provider:
+    build:
+      context: ../../fake-payment-provider
+    container_name: individuals-fake-payment-provider
+    ports:
+      - "8899:8888"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://individuals-provider-db:5432/fake_provider
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    depends_on:
+      individuals-provider-db:
+        condition: service_healthy
+
+  payment-service:
+    build:
+      context: ../../paymentService
+    container_name: individuals-payment-service
+    ports:
+      - "8084:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://individuals-payment-db:5432/payment_service
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      FAKE_PAYMENT_PROVIDER_URL: http://fake-payment-provider:8888
+      FAKE_PAYMENT_PROVIDER_USERNAME: payment-service
+      FAKE_PAYMENT_PROVIDER_PASSWORD: payment-service-secret
+    depends_on:
+      individuals-payment-db:
+        condition: service_healthy
+      fake-payment-provider:
+        condition: service_started
 
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.2
+    container_name: individuals-keycloak
+    command:
+      - start-dev
+      - --import-realm
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       KC_HTTP_ENABLED: "true"
-      KC_PROXY: edge
       KC_HOSTNAME_STRICT: "false"
     volumes:
-      - ./realm-config.json:/opt/keycloak/data/import/realm-config.json:ro
-    command:
-      - start-dev
-      - --import-realm
+      - ./src/main/resources/realm-config.json:/opt/keycloak/data/import/realm-config.json:ro
     ports:
       - "9091:8080"
-    networks:
-      - individuals-net
 
+  individuals-api:
+    build:
+      context: .
+      args:
+        NEXUS_URL: http://host.docker.internal:8081/repository/maven-public/
+    container_name: individuals-api
+    ports:
+      - "9090:9093"
+    environment:
+      PAYMENT_SERVICE_URL: http://payment-service:8083
+      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/individuals-realm
+      KEYCLOAK_CLIENT_SECRET: nKn2N45FZaUnjvMYDbhcROGKbW6U4JZE
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      payment-service:
+        condition: service_started
+      keycloak:
+        condition: service_started
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: individuals-prometheus
+    ports:
+      - "9095:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      payment-service:
+        condition: service_started
 
-networks:
-  individuals-net:
-    driver: bridge
-
-
-
-
+  grafana:
+    image: grafana/grafana:latest
+    container_name: individuals-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    depends_on:
+      - prometheus

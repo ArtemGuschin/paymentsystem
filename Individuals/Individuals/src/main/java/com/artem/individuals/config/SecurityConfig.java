@@ -33,30 +33,39 @@ public class SecurityConfig {
 
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
-        http
-                .csrf().disable()
+        return http
+                .csrf(csrf -> csrf.disable())
                 .authorizeExchange(exchanges -> exchanges
+
+                        // Swagger
+                        .pathMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/webjars/**"
+                        ).permitAll()
+
+                        // Auth
                         .pathMatchers(HttpMethod.POST,
                                 "/v1/auth/registration",
                                 "/v1/auth/login",
                                 "/v1/auth/refresh-token"
-
                         ).permitAll()
 
-                        .pathMatchers(HttpMethod.GET, "/v1/auth/me").hasAnyRole("user", "admin")
-                        .pathMatchers("/v1/admin/**").hasRole("admin")
+                        // Payment API
                         .pathMatchers("/api/v1/payments/**").permitAll()
+
+                        .pathMatchers(HttpMethod.GET, "/v1/auth/me")
+                        .hasAnyRole("USER", "ADMIN")
+
+                        .pathMatchers("/v1/admin/**")
+                        .hasRole("ADMIN")
 
                         .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter()))
-                        .authenticationEntryPoint((exchange, ex) ->
-                                Mono.error(new ResponseStatusException(HttpStatus.UNAUTHORIZED, ex.getMessage())))
-                        .accessDeniedHandler((exchange, ex) ->
-                                Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied"))));
-
-        return http.build();
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter())))
+                .build();
     }
 
     private Converter<Jwt, Mono<AbstractAuthenticationToken>> jwtAuthConverter() {

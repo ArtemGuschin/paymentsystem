@@ -45,10 +45,23 @@ public class FakePaymentGateway implements PaymentGateway {
                 );
 
         /*
-         * 2. Создаём транзакцию.
+         * 2. Создаём транзакцию у провайдера.
          */
-        Transaction providerTransaction =
-                transactionsApi.createTransaction(transactionRequest);
+        log.info("ApiClient basePath={}", transactionsApi.getApiClient().getBasePath());
+
+        Transaction providerTransaction;
+
+        try {
+
+            providerTransaction =
+                    transactionsApi.createTransaction(transactionRequest);
+
+        } catch (Exception ex) {
+
+            log.error("Provider call failed", ex);
+
+            throw ex;
+        }
 
         if (providerTransaction == null
                 || providerTransaction.getId() == null) {
@@ -62,37 +75,91 @@ public class FakePaymentGateway implements PaymentGateway {
                 providerTransaction.getId();
 
         log.info(
-                "Transaction created in Fake Payment Provider. providerTransactionId={}, initialStatus={}",
+                "Transaction accepted by Fake Payment Provider. providerTransactionId={}, initialStatus={}",
                 providerTransactionId,
                 providerTransaction.getStatus()
         );
 
         /*
-         * 3. Получаем актуальный статус через REST.
+         * Провайдер уже принял операцию и выдал ID.
          *
-         * Webhook здесь специально НЕ используется.
+         * Поэтому при проблеме с последующим polling
+         * результат не должен становиться FAILED.
          */
-        Transaction actualTransaction =
-                waitForFinalStatus(providerTransactionId);
+        try {
 
-        PaymentStatus paymentStatus =
-                mapPaymentStatus(actualTransaction.getStatus().name());
+            Transaction actualTransaction =
+                    waitForFinalStatus(providerTransactionId);
 
-        log.info(
-                "Final provider transaction status received. providerTransactionId={}, status={}",
-                providerTransactionId,
-                actualTransaction.getStatus()
+            PaymentStatus paymentStatus =
+                    mapPaymentStatus(
+                            actualTransaction.getStatus().name()
+                    );
+
+            log.info(
+                    "Final provider transaction status received. providerTransactionId={}, status={}",
+                    providerTransactionId,
+                    actualTransaction.getStatus()
+            );
+
+            return new PaymentResponse()
+                    .providerTransactionId(
+                            providerTransactionId.toString()
+                    )
+                    .status(paymentStatus);
+
+        } catch (Exception ex) {
+
+            log.warn(
+                    "Could not determine final provider status. " +
+                            "Keeping payment PENDING. providerTransactionId={}",
+                    providerTransactionId,
+                    ex
+            );
+
+            return new PaymentResponse()
+                    .providerTransactionId(
+                            providerTransactionId.toString()
+                    )
+                    .status(PaymentStatus.PENDING);
+        }
+    }
+    @Override
+    public PaymentStatus getPaymentStatus(
+            String providerTransactionId
+    ) {
+
+        Long providerId;
+
+        try {
+
+            providerId = Long.parseLong(providerTransactionId);
+
+        } catch (NumberFormatException ex) {
+
+            throw new IllegalArgumentException(
+                    "Invalid provider transaction id: "
+                            + providerTransactionId,
+                    ex
+            );
+        }
+
+        Transaction transaction =
+                transactionsApi.getTransactionById(providerId);
+
+        if (transaction == null
+                || transaction.getStatus() == null) {
+
+            throw new IllegalStateException(
+                    "Fake Payment Provider returned invalid transaction status. "
+                            + "providerTransactionId="
+                            + providerTransactionId
+            );
+        }
+
+        return mapPaymentStatus(
+                transaction.getStatus().name()
         );
-
-        /*
-         * 4. Возвращаем Payment Service результат
-         * в его внутреннем формате.
-         */
-        return new PaymentResponse()
-                .providerTransactionId(
-                        providerTransactionId.toString()
-                )
-                .status(paymentStatus);
     }
 
     private Transaction waitForFinalStatus(

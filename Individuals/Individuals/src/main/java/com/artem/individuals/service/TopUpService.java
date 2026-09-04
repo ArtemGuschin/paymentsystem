@@ -59,7 +59,7 @@ public class TopUpService {
                 .map(response -> {
                     return TopUpConfirmResponseDto.builder()
                             .transactionUuid(response.getTransactionUid())
-                            .status(response.getStatus())
+                            .status(response.getStatus().getValue())
                             .build();
                 });
 

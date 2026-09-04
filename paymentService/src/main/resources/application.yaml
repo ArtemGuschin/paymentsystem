@@ -25,12 +25,30 @@ payment-service:
   connect-timeout: 5s
   read-timeout: 30s
 
+  security:
+    username: admin
+    password-hash: "$2a$10$NbZWJ28OPpT/tYAh6VuZn.20bKwf7AiXLgtCmSYMAVGyLGXFhYm/q"
+
 fake-payment-provider:
   base-url: ${FAKE_PAYMENT_PROVIDER_URL:http://localhost:8888}
   username: ${FAKE_PAYMENT_PROVIDER_USERNAME:payment-service}
   password: ${FAKE_PAYMENT_PROVIDER_PASSWORD:payment-service-secret}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+
 logging:
   level:
     org.springframework.web: DEBUG
     org.springframework.security: DEBUG
+    root: INFO

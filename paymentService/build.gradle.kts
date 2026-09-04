@@ -29,26 +29,32 @@ configurations {
 }
 
 val jacksonDatabindNullableVersion: String by project
-val swaggerAnnotationsVersion: String by project
 val mapstructVersion: String by project
 val wiremockStandaloneVersion: String by project
 val lombokMapstructBindingVersion: String by project
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-//    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
 
     implementation("org.springframework.boot:spring-boot-starter-validation")
-    implementation("org.flywaydb:flyway-core")
-    implementation("io.swagger.core.v3:swagger-annotations:${swaggerAnnotationsVersion}")
+
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
+    implementation("org.flywaydb:flyway-database-postgresql")
+
+
     implementation("org.openapitools:jackson-databind-nullable:${jacksonDatabindNullableVersion}")
     implementation("org.mapstruct:mapstruct:${mapstructVersion}")
     annotationProcessor("org.mapstruct:mapstruct-processor:${mapstructVersion}")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
-    implementation("org.springframework:spring-webflux") // явно, чтобы избежать проблем
+    implementation("org.springframework:spring-webflux")
+
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("io.micrometer:micrometer-registry-prometheus")
 
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
