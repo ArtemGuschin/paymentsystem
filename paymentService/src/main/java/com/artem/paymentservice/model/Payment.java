@@ -27,7 +27,11 @@ public class Payment {
     @Column(name = "external_transaction_id")
     private String externalTransactionId;
 
-    @Column(name = "internal_transaction_id")
+    @Column(
+            name = "internal_transaction_id",
+            nullable = false,
+            unique = true
+    )
     private String internalTransactionId;
 
     @Column(nullable = false, precision = 18, scale = 2)

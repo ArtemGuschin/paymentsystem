@@ -10,10 +10,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # РЕКОМЕНДУЮ issuer-uri, а не jwk-set-uri
-          issuer-uri: http://localhost:9091/realms/individuals-realm
-          # если хочешь оставить jwk-set-uri, закомментируй issuer-uri
-          # jwk-set-uri: http://localhost:9091/realms/individuals-realm/protocol/openid-connect/certs
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:9091/realms/individuals-realm}
 
   cloud:
     compatibility-verifier:
@@ -26,15 +23,13 @@ logging:
     root: INFO
     com.artem.transaction.client: INFO
 
-
 keycloak:
-  server-url: http://localhost:9091
+  server-url: ${KEYCLOAK_SERVER_URL:http://localhost:9091}
   realm: individuals-realm
   client-id: individuals-api
-  client-secret: your-client-secret
+  client-secret:  ${KEYCLOAK_CLIENT_SECRET:your-client-secret}
   admin-username: admin
   admin-password: admin
-
 
 person:
   service:
@@ -44,7 +39,11 @@ transaction:
   service:
     url: ${TRANSACTION_SERVICE_URL:http://localhost:8585/api/v1}
 
+payment-service:
+  url: ${PAYMENT_SERVICE_URL:http://localhost:8083}
 
+auth-service:
+  url: http://localhost:9090
 
 springdoc:
   api-docs:
@@ -52,44 +51,3 @@ springdoc:
   swagger-ui:
     enabled: true
     path: /swagger-ui.html
-
-
-payment-service:
-  url: http://localhost:8083
-
-auth-service:
-  url: http://localhost:9090
-
-
-
-
-
-
-
-
-
-#server:
-#  port: 9092
-#
-#keycloak:
-#  server-url: http://localhost:9091  # Имя сервиса в Docker
-#  realm: individuals-realm
-#  client-id: individuals-api
-#  client-secret: your-client-secret  # Должен совпадать с Keycloak
-#  admin-username: admin
-#  admin-password: admin  # Пароль администратора Keycloak
-#
-#spring:
-#  security:
-#    oauth2:
-#      resourceserver:
-#        jwt:
-#          jwk-set-uri: http://localhost:9091/realms/individuals-realm/protocol/openid-connect/certs
-#
-#  cloud:
-#    compatibility-verifier:
-#      enabled: false
-#
-#logging:
-#  level:
-#    org.springframework.security: DEBUG

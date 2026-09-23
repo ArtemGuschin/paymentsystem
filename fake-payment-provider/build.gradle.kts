@@ -26,7 +26,7 @@ configurations {
     }
 }
 val jacksonDatabindNullableVersion: String by project
-val swaggerAnnotationsVersion: String by project
+
 val mapstructVersion: String by project
 val wiremockStandaloneVersion: String by project
 val lombokMapstructBindingVersion: String by project
@@ -37,7 +37,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.flywaydb:flyway-core")
-    implementation("io.swagger.core.v3:swagger-annotations:${swaggerAnnotationsVersion}")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0")
     implementation("org.openapitools:jackson-databind-nullable:${jacksonDatabindNullableVersion}")
     implementation("org.mapstruct:mapstruct:${mapstructVersion}")
     annotationProcessor("org.mapstruct:mapstruct-processor:${mapstructVersion}")

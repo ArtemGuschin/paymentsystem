@@ -56,7 +56,7 @@ class PaymentMethodControllerIT extends AbstractIntegrationTest {
         PaymentProvider provider =
                 paymentProviderRepository.save(
                         PaymentProvider.builder()
-                                .name("TEST_PROVIDER")
+                                .name("FAKE")
                                 .description("Test provider")
                                 .build()
                 );
@@ -91,6 +91,7 @@ class PaymentMethodControllerIT extends AbstractIntegrationTest {
                 PaymentMethodRequiredField.builder()
                         .uid(UUID.randomUUID())
                         .paymentMethod(paymentMethod)
+                        .paymentType("CARD")
                         .name("cardNumber")
                         .dataType("STRING")
                         .isActive(true)

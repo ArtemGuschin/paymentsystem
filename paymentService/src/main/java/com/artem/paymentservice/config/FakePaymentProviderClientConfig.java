@@ -31,6 +31,8 @@ public class FakePaymentProviderClientConfig {
                 properties.getPassword()
         );
 
+        System.out.println("=== Fake Provider baseUrl: " + properties.getBaseUrl());
+
         return apiClient;
     }
 
