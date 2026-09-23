@@ -11,6 +11,10 @@ import com.artem.fakepaymentprovider.repository.TransactionRepository;
 
 import com.artem.fakepaymentprovider.repository.WebhookRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -33,6 +37,9 @@ public class TransactionService {
     private final MerchantRepository merchantRepository;
     private final WebhookRepository webhookRepository;
     private final TransactionMapper mapper;
+
+    @Value("${webhook.security.token}")
+    private String webhookSecurityToken;
 
 
     @Transactional
@@ -138,6 +145,7 @@ public class TransactionService {
 
     private void sendWebhook(TransactionEntity tx) {
 
+
         if (tx.getNotificationUrl() == null) {
             System.out.println(">>> NO WEBHOOK URL");
             return;
@@ -146,6 +154,7 @@ public class TransactionService {
         RestTemplate restTemplate = new RestTemplate();
 
         Map<String, Object> payload = new HashMap<>();
+        payload.put("transactionUid", tx.getExternalId());
         payload.put("status", tx.getStatus());
         payload.put("amount", tx.getAmount());
 
@@ -167,10 +176,17 @@ public class TransactionService {
             body.put("entityId", tx.getId());
             body.put("payload", payload);
 
-            restTemplate.postForObject(
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("X-Webhook-Token", webhookSecurityToken);
+
+            HttpEntity<Map<String, Object>> request =
+                    new HttpEntity<>(body, headers);
+
+            restTemplate.postForEntity(
                     tx.getNotificationUrl(),
-                    body,
-                    String.class
+                    request,
+                    Void.class
             );
 
 
@@ -183,44 +199,5 @@ public class TransactionService {
         webhookRepository.save(webhook);
     }
 
-//    private void sendWebhook(TransactionEntity tx) {
-//
-//        if (tx.getNotificationUrl() == null) {
-//            System.out.println(">>> NO WEBHOOK URL");
-//            return;
-//        }
-//
-//        try {
-//            RestTemplate restTemplate = new RestTemplate();
-//
-//            Map<String, Object> body = new HashMap<>();
-//            body.put("eventType", "TRANSACTION_SUCCESS");
-//            body.put("entityId", tx.getId());
-//
-//            Map<String, Object> payload = new HashMap<>();
-//            payload.put("status", tx.getStatus());
-//            payload.put("amount", tx.getAmount());
-//
-//            body.put("payload", payload);
-//
-//            System.out.println(">>> SENDING WEBHOOK TO: " + tx.getNotificationUrl());
-//
-//            restTemplate.postForObject(
-//                    tx.getNotificationUrl(),
-//                    body,
-//                    String.class
-//            );
-//            WebhookEntity webhook = WebhookEntity.builder()
-//                    .eventType("TRANSACTION_SUCCESS")
-//                    .entityId(tx.getId())
-//                    .payload(payload)
-//                    .notificationUrl(tx.getNotificationUrl())
-//                    .receivedAt(Instant.now())
-//                    .build();
-//
-//            webhookRepository.save(webhook);
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//    }
+
 }

@@ -25,6 +25,10 @@ fake-payment-provider:
     username: ${FAKE_PAYMENT_PROVIDER_USERNAME:payment-service}
     password: ${FAKE_PAYMENT_PROVIDER_PASSWORD:payment-service-secret}
 
+webhook:
+  security:
+    token: ${WEBHOOK_SECURITY_TOKEN:fake-provider-secret}
+
 logging:
   level:
     org.springframework.security: TRACE
