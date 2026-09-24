@@ -33,6 +33,7 @@ public class PaymentClientImpl implements PaymentClient {
         return paymentWebClient
                 .post()
                 .uri("/api/v1/payments")
+                .headers(headers -> headers.setBasicAuth("admin", "admin"))
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(PaymentResponse.class);
@@ -49,6 +50,7 @@ public class PaymentClientImpl implements PaymentClient {
                 .uri(uriBuilder -> uriBuilder
                         .path("/api/v1/payment-methods/{currency}/{country}")
                         .build(currency, country))
+                .headers(headers -> headers.setBasicAuth("admin", "admin"))
                 .retrieve()
                 .bodyToFlux(PaymentMethodResponse.class);
     }

@@ -1,10 +1,13 @@
 package com.artem.paymentservice;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
+
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
@@ -14,6 +17,13 @@ public class TestcontainersConfiguration {
     PostgreSQLContainer<?> postgresContainer() {
         return new PostgreSQLContainer<>(
                 DockerImageName.parse("postgres:16")
+        );
+    }
+
+    @Bean(initMethod = "start", destroyMethod = "stop")
+    WireMockServer wireMockServer() {
+        return new WireMockServer(
+                options().port(8889)
         );
     }
 }

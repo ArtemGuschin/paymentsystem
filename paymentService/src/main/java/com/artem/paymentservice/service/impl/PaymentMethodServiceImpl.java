@@ -29,11 +29,10 @@ public class PaymentMethodServiceImpl
     ) {
 
         List<PaymentMethodDefinition> definitions =
-                definitionRepository
-                        .findByCurrencyCodeAndCountryAlpha3CodeAndIsActiveTrue(
-                                currencyCode,
-                                countryCode
-                        );
+                definitionRepository.findEligibleDefinitions(
+                        currencyCode,
+                        countryCode
+                );
 
         return definitions.stream()
                 .map(PaymentMethodDefinition::getPaymentMethod)
