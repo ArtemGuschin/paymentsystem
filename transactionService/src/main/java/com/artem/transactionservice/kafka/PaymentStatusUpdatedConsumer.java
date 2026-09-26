@@ -18,8 +18,10 @@ public class PaymentStatusUpdatedConsumer {
     private final ObjectMapper objectMapper;
 
     @KafkaListener(
+            id = "paymentStatusUpdatedListener",
             topics = "payment.status.updated",
-            groupId = "transaction-service"
+            groupId = "transaction-service",
+            autoStartup = "${payment-status-consumer.auto-startup:true}"
     )
     @Transactional
     public void handle(String message) {
