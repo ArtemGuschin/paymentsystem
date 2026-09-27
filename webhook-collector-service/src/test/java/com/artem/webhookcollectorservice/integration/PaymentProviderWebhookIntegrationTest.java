@@ -14,6 +14,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import com.artem.webhookcollectorservice.entity.UnknownCallbackEntity;
+import com.artem.webhookcollectorservice.repository.UnknownCallbackRepository;
 
 import java.util.List;
 import java.util.UUID;
@@ -40,10 +42,15 @@ class PaymentProviderWebhookIntegrationTest {
     @Autowired
     private OutboxRepository outboxRepository;
 
+    @Autowired
+    private UnknownCallbackRepository unknownCallbackRepository;
+
+
     @BeforeEach
     void cleanDatabase() {
         outboxRepository.deleteAll();
         callbackRepository.deleteAll();
+        unknownCallbackRepository.deleteAll();
     }
 
     @Test
@@ -103,16 +110,16 @@ class PaymentProviderWebhookIntegrationTest {
     void shouldRejectWebhookAndSaveNothingWhenTokenIsInvalid() throws Exception {
 
         String body = """
-            {
-              "eventType": "TRANSACTION_SUCCESS",
-              "entityId": 58,
-              "payload": {
-                "transactionUid": "650e8400-e29b-41d4-a716-446655440000",
-                "status": "SUCCESS",
-                "amount": 500.00
-              }
-            }
-            """;
+                {
+                  "eventType": "TRANSACTION_SUCCESS",
+                  "entityId": 58,
+                  "payload": {
+                    "transactionUid": "650e8400-e29b-41d4-a716-446655440000",
+                    "status": "SUCCESS",
+                    "amount": 500.00
+                  }
+                }
+                """;
 
         mockMvc.perform(
                         post("/api/v1/webhooks/payment-provider")
@@ -125,6 +132,7 @@ class PaymentProviderWebhookIntegrationTest {
         assertThat(callbackRepository.findAll()).isEmpty();
         assertThat(outboxRepository.findAll()).isEmpty();
     }
+
     @Test
     void shouldNotCreateDuplicatesWhenSameWebhookReceivedTwice() throws Exception {
 
@@ -132,16 +140,16 @@ class PaymentProviderWebhookIntegrationTest {
                 UUID.fromString("750e8400-e29b-41d4-a716-446655440000");
 
         String body = """
-            {
-              "eventType": "TRANSACTION_SUCCESS",
-              "entityId": 59,
-              "payload": {
-                "transactionUid": "%s",
-                "status": "SUCCESS",
-                "amount": 700.00
-              }
-            }
-            """.formatted(transactionUid);
+                {
+                  "eventType": "TRANSACTION_SUCCESS",
+                  "entityId": 59,
+                  "payload": {
+                    "transactionUid": "%s",
+                    "status": "SUCCESS",
+                    "amount": 700.00
+                  }
+                }
+                """.formatted(transactionUid);
 
         // Первый webhook
         mockMvc.perform(
@@ -173,4 +181,46 @@ class PaymentProviderWebhookIntegrationTest {
         assertThat(outboxEvent.getStatus())
                 .isEqualTo(OutboxStatus.NEW);
     }
+    @Test
+    void shouldStoreUnknownEventWithoutCreatingCallbackOrOutbox() throws Exception {
+
+        UUID transactionUid =
+                UUID.fromString("850e8400-e29b-41d4-a716-446655440000");
+
+        String body = """
+            {
+              "eventType": "UNSUPPORTED_EVENT",
+              "entityId": 60,
+              "payload": {
+                "transactionUid": "%s",
+                "status": "SUCCESS",
+                "amount": 100.00
+              }
+            }
+            """.formatted(transactionUid);
+
+        mockMvc.perform(
+                        post("/api/v1/webhooks/payment-provider")
+                                .header("X-Webhook-Token", "test-secret")
+                                .contentType("application/json")
+                                .content(body)
+                )
+                .andExpect(status().isOk());
+
+        List<UnknownCallbackEntity> unknownCallbacks =
+                unknownCallbackRepository.findAll();
+
+        assertThat(unknownCallbacks).hasSize(1);
+
+        assertThat(unknownCallbacks.getFirst().getBody())
+                .contains("UNSUPPORTED_EVENT")
+                .contains(transactionUid.toString());
+
+        assertThat(callbackRepository.findAll()).isEmpty();
+        assertThat(outboxRepository.findAll()).isEmpty();
+    }
+
+
+
+
 }

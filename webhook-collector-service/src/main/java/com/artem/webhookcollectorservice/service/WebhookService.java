@@ -4,8 +4,10 @@ import com.artem.webhookcollectorservice.dto.PaymentProviderWebhookRequest;
 import com.artem.webhookcollectorservice.dto.PaymentStatusUpdatedEvent;
 import com.artem.webhookcollectorservice.entity.OutboxEventEntity;
 import com.artem.webhookcollectorservice.entity.PaymentProviderCallbackEntity;
+import com.artem.webhookcollectorservice.entity.UnknownCallbackEntity;
 import com.artem.webhookcollectorservice.repository.OutboxRepository;
 import com.artem.webhookcollectorservice.repository.PaymentProviderCallbackRepository;
+import com.artem.webhookcollectorservice.repository.UnknownCallbackRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -21,26 +23,36 @@ public class WebhookService {
 
     private final PaymentProviderCallbackRepository callbackRepository;
     private final OutboxRepository outboxRepository;
+    private final UnknownCallbackRepository unknownCallbackRepository;
     private final ObjectMapper objectMapper;
+    private static final String TRANSACTION_SUCCESS = "TRANSACTION_SUCCESS";
 
     @Transactional
     public void processPaymentProviderCallback(
             PaymentProviderWebhookRequest request
     ) {
-        boolean alreadyProcessed =
-                callbackRepository.existsByProviderAndProviderTransactionIdAndType(
-                        PROVIDER,
-                        request.getEntityId(),
-                        request.getEventType()
-                );
-
-        if (alreadyProcessed) {
-            return;
-        }
-
-
         try {
             String body = objectMapper.writeValueAsString(request);
+
+            // Unknown event types must be stored for investigation,
+            // but must never produce a payment status event.
+            if (!TRANSACTION_SUCCESS.equals(request.getEventType())) {
+                unknownCallbackRepository.save(
+                        new UnknownCallbackEntity(body)
+                );
+                return;
+            }
+
+            boolean alreadyProcessed =
+                    callbackRepository.existsByProviderAndProviderTransactionIdAndType(
+                            PROVIDER,
+                            request.getEntityId(),
+                            request.getEventType()
+                    );
+
+            if (alreadyProcessed) {
+                return;
+            }
 
             PaymentProviderCallbackEntity callback =
                     new PaymentProviderCallbackEntity(
