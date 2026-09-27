@@ -220,6 +220,101 @@ class PaymentProviderWebhookIntegrationTest {
         assertThat(outboxRepository.findAll()).isEmpty();
     }
 
+    @Test
+    void shouldReturnBadRequestAndSaveNothingWhenPayloadIsMissing() throws Exception {
+
+        String body = """
+            {
+              "eventType": "TRANSACTION_SUCCESS",
+              "entityId": 61
+            }
+            """;
+
+        mockMvc.perform(
+                        post("/api/v1/webhooks/payment-provider")
+                                .header("X-Webhook-Token", "test-secret")
+                                .contentType("application/json")
+                                .content(body)
+                )
+                .andExpect(status().isBadRequest());
+
+        assertThat(callbackRepository.findAll()).isEmpty();
+        assertThat(outboxRepository.findAll()).isEmpty();
+        assertThat(unknownCallbackRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void shouldRejectInvalidStatusWithoutBlockingCorrectedWebhook() throws Exception {
+
+        UUID transactionUid =
+                UUID.fromString("950e8400-e29b-41d4-a716-446655440000");
+
+        // 1. Приходит известное событие, но с недопустимым статусом.
+        String invalidBody = """
+            {
+              "eventType": "TRANSACTION_SUCCESS",
+              "entityId": 62,
+              "payload": {
+                "transactionUid": "%s",
+                "status": "BANANA",
+                "amount": 100.00
+              }
+            }
+            """.formatted(transactionUid);
+
+        mockMvc.perform(
+                        post("/api/v1/webhooks/payment-provider")
+                                .header("X-Webhook-Token", "test-secret")
+                                .contentType("application/json")
+                                .content(invalidBody)
+                )
+                .andExpect(status().isBadRequest());
+
+        // Невалидный webhook не должен ничего занимать в БД.
+        assertThat(callbackRepository.findAll()).isEmpty();
+        assertThat(outboxRepository.findAll()).isEmpty();
+        assertThat(unknownCallbackRepository.findAll()).isEmpty();
+
+        // 2. Provider исправляет webhook.
+        // entityId и eventType намеренно ТЕ ЖЕ.
+        String correctedBody = """
+            {
+              "eventType": "TRANSACTION_SUCCESS",
+              "entityId": 62,
+              "payload": {
+                "transactionUid": "%s",
+                "status": "SUCCESS",
+                "amount": 100.00
+              }
+            }
+            """.formatted(transactionUid);
+
+        mockMvc.perform(
+                        post("/api/v1/webhooks/payment-provider")
+                                .header("X-Webhook-Token", "test-secret")
+                                .contentType("application/json")
+                                .content(correctedBody)
+                )
+                .andExpect(status().isOk());
+
+        // 3. Исправленная доставка должна обработаться как первая валидная.
+        assertThat(callbackRepository.findAll()).hasSize(1);
+        assertThat(outboxRepository.findAll()).hasSize(1);
+        assertThat(unknownCallbackRepository.findAll()).isEmpty();
+
+        PaymentProviderCallbackEntity callback =
+                callbackRepository.findAll().getFirst();
+
+        assertThat(callback.getProviderTransactionId()).isEqualTo(62L);
+        assertThat(callback.getType()).isEqualTo("TRANSACTION_SUCCESS");
+
+        OutboxEventEntity outboxEvent =
+                outboxRepository.findAll().getFirst();
+
+        assertThat(outboxEvent.getAggregateId()).isEqualTo(transactionUid);
+        assertThat(outboxEvent.getPayload()).contains("SUCCESS");
+    }
+
 
 
 

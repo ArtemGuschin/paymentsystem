@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/webhooks")
@@ -19,7 +20,7 @@ public class WebhookControllerV1 {
     @PostMapping("/payment-provider")
     public ResponseEntity<Void> receivePaymentProviderWebhook(
             @RequestHeader(value = "X-Webhook-Token", required = false) String token,
-            @RequestBody PaymentProviderWebhookRequest request
+           @Valid @RequestBody PaymentProviderWebhookRequest request
     ) {
 
         if (!securityService.isValid(token)) {

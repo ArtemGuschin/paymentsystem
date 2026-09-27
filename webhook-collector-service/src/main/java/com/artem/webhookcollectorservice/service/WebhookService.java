@@ -10,6 +10,7 @@ import com.artem.webhookcollectorservice.repository.PaymentProviderCallbackRepos
 import com.artem.webhookcollectorservice.repository.UnknownCallbackRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.artem.webhookcollectorservice.exception.InvalidWebhookException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,14 @@ public class WebhookService {
                         new UnknownCallbackEntity(body)
                 );
                 return;
+            }
+
+            if (!"SUCCESS".equals(request.getPayload().getStatus())) {
+                throw new InvalidWebhookException(
+                        "Status " + request.getPayload().getStatus()
+                                + " is not valid for event type "
+                                + request.getEventType()
+                );
             }
 
             boolean alreadyProcessed =
