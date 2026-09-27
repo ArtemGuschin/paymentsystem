@@ -8,6 +8,7 @@ import com.artem.webhookcollectorservice.repository.OutboxRepository;
 import com.artem.webhookcollectorservice.repository.PaymentProviderCallbackRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -44,6 +45,9 @@ class PaymentProviderWebhookIntegrationTest {
 
     @Autowired
     private UnknownCallbackRepository unknownCallbackRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
 
     @BeforeEach
@@ -313,6 +317,50 @@ class PaymentProviderWebhookIntegrationTest {
 
         assertThat(outboxEvent.getAggregateId()).isEqualTo(transactionUid);
         assertThat(outboxEvent.getPayload()).contains("SUCCESS");
+    }
+
+    @Test
+    void shouldStoreWebhookBodyAsPlainTextInPostgres() throws Exception {
+
+        UUID transactionUid =
+                UUID.fromString("a50e8400-e29b-41d4-a716-446655440000");
+
+        String body = """
+            {
+              "eventType": "TRANSACTION_SUCCESS",
+              "entityId": 63,
+              "payload": {
+                "transactionUid": "%s",
+                "status": "SUCCESS",
+                "amount": 100.00
+              }
+            }
+            """.formatted(transactionUid);
+
+        mockMvc.perform(
+                        post("/api/v1/webhooks/payment-provider")
+                                .header("X-Webhook-Token", "test-secret")
+                                .contentType("application/json")
+                                .content(body)
+                )
+                .andExpect(status().isOk());
+
+        String storedBody = jdbcTemplate.queryForObject(
+                """
+                SELECT body
+                FROM payment_provider_callbacks
+                WHERE provider_transaction_id = ?
+                """,
+                String.class,
+                63L
+        );
+
+        assertThat(storedBody)
+                .isNotNull()
+                .contains("\"eventType\":\"TRANSACTION_SUCCESS\"")
+                .contains("\"entityId\":63")
+                .contains(transactionUid.toString())
+                .contains("\"status\":\"SUCCESS\"");
     }
 
 

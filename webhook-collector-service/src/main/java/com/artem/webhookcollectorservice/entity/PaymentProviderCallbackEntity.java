@@ -37,7 +37,7 @@ public class PaymentProviderCallbackEntity {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @Lob
+    
     @Column(name = "body", nullable = false, columnDefinition = "TEXT")
     private String body;
 
