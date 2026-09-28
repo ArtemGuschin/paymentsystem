@@ -15,11 +15,17 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import com.artem.webhookcollectorservice.entity.UnknownCallbackEntity;
 import com.artem.webhookcollectorservice.repository.UnknownCallbackRepository;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -362,6 +368,119 @@ class PaymentProviderWebhookIntegrationTest {
                 .contains(transactionUid.toString())
                 .contains("\"status\":\"SUCCESS\"");
     }
+    @Test
+    void shouldHandleConcurrentDuplicateWebhooksIdempotently() throws Exception {
+
+        UUID transactionUid =
+                UUID.fromString("b50e8400-e29b-41d4-a716-446655440000");
+
+        String body = """
+            {
+              "eventType": "TRANSACTION_SUCCESS",
+              "entityId": 64,
+              "payload": {
+                "transactionUid": "%s",
+                "status": "SUCCESS",
+                "amount": 100.00
+              }
+            }
+            """.formatted(transactionUid);
+
+        int requestCount = 16;
+
+        ExecutorService executor =
+                Executors.newFixedThreadPool(requestCount);
+
+        try {
+            CountDownLatch ready = new CountDownLatch(requestCount);
+            CountDownLatch start = new CountDownLatch(1);
+
+            List<CompletableFuture<Integer>> futures = new ArrayList<>();
+
+            for (int i = 0; i < requestCount; i++) {
+
+                CompletableFuture<Integer> future =
+                        CompletableFuture.supplyAsync(() -> {
+                            try {
+                                // Каждый поток сообщает:
+                                // "Я готов отправлять запрос".
+                                ready.countDown();
+
+                                // Все 16 потоков ждут здесь,
+                                // пока мы не разрешим им стартовать.
+                                start.await();
+
+                                return mockMvc.perform(
+                                                post("/api/v1/webhooks/payment-provider")
+                                                        .header(
+                                                                "X-Webhook-Token",
+                                                                "test-secret"
+                                                        )
+                                                        .contentType("application/json")
+                                                        .content(body)
+                                        )
+                                        .andReturn()
+                                        .getResponse()
+                                        .getStatus();
+
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        }, executor); // <-- ВАЖНО: наш pool из 16 потоков
+
+                futures.add(future);
+            }
+
+            // Ждём, пока все 16 потоков действительно будут готовы.
+            assertThat(
+                    ready.await(10, TimeUnit.SECONDS)
+            ).isTrue();
+
+            // Одновременно отпускаем все 16 запросов.
+            start.countDown();
+
+            List<Integer> statuses = new ArrayList<>();
+
+            for (CompletableFuture<Integer> future : futures) {
+                statuses.add(
+                        future.get(20, TimeUnit.SECONDS)
+                );
+            }
+
+            // Все 16 HTTP-запросов должны завершиться успешно.
+            assertThat(statuses)
+                    .hasSize(requestCount)
+                    .allMatch(status -> status == 200);
+
+            // Несмотря на 16 запросов, callback должен быть только один.
+            assertThat(callbackRepository.findAll())
+                    .hasSize(1);
+
+            // Outbox event тоже должен быть создан только один раз.
+            assertThat(outboxRepository.findAll())
+                    .hasSize(1);
+
+            PaymentProviderCallbackEntity callback =
+                    callbackRepository.findAll().getFirst();
+
+            assertThat(callback.getProviderTransactionId())
+                    .isEqualTo(64L);
+
+            OutboxEventEntity outboxEvent =
+                    outboxRepository.findAll().getFirst();
+
+            assertThat(outboxEvent.getAggregateId())
+                    .isEqualTo(transactionUid);
+
+            assertThat(outboxEvent.getPayload())
+                    .contains("SUCCESS");
+
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+
 
 
 

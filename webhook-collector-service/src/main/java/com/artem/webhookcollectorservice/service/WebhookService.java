@@ -3,17 +3,18 @@ package com.artem.webhookcollectorservice.service;
 import com.artem.webhookcollectorservice.dto.PaymentProviderWebhookRequest;
 import com.artem.webhookcollectorservice.dto.PaymentStatusUpdatedEvent;
 import com.artem.webhookcollectorservice.entity.OutboxEventEntity;
-import com.artem.webhookcollectorservice.entity.PaymentProviderCallbackEntity;
 import com.artem.webhookcollectorservice.entity.UnknownCallbackEntity;
+import com.artem.webhookcollectorservice.exception.InvalidWebhookException;
 import com.artem.webhookcollectorservice.repository.OutboxRepository;
 import com.artem.webhookcollectorservice.repository.PaymentProviderCallbackRepository;
 import com.artem.webhookcollectorservice.repository.UnknownCallbackRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.artem.webhookcollectorservice.exception.InvalidWebhookException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -21,12 +22,12 @@ public class WebhookService {
 
     private static final String PROVIDER = "FAKE_PAYMENT_PROVIDER";
     private static final String PAYMENT_STATUS_UPDATED = "payment.status.updated";
+    private static final String TRANSACTION_SUCCESS = "TRANSACTION_SUCCESS";
 
     private final PaymentProviderCallbackRepository callbackRepository;
     private final OutboxRepository outboxRepository;
     private final UnknownCallbackRepository unknownCallbackRepository;
     private final ObjectMapper objectMapper;
-    private static final String TRANSACTION_SUCCESS = "TRANSACTION_SUCCESS";
 
     @Transactional
     public void processPaymentProviderCallback(
@@ -44,6 +45,7 @@ public class WebhookService {
                 return;
             }
 
+            // Known event must contain a status valid for this event type.
             if (!"SUCCESS".equals(request.getPayload().getStatus())) {
                 throw new InvalidWebhookException(
                         "Status " + request.getPayload().getStatus()
@@ -52,26 +54,21 @@ public class WebhookService {
                 );
             }
 
-            boolean alreadyProcessed =
-                    callbackRepository.existsByProviderAndProviderTransactionIdAndType(
-                            PROVIDER,
-                            request.getEntityId(),
-                            request.getEventType()
-                    );
+            // Atomic idempotency:
+            // only one concurrent request can insert the callback.
+            int inserted = callbackRepository.insertIfAbsent(
+                    UUID.randomUUID(),
+                    body,
+                    request.getEntityId(),
+                    request.getEventType(),
+                    PROVIDER
+            );
 
-            if (alreadyProcessed) {
+            // Duplicate webhook was already accepted.
+            // Do not create another outbox event.
+            if (inserted == 0) {
                 return;
             }
-
-            PaymentProviderCallbackEntity callback =
-                    new PaymentProviderCallbackEntity(
-                            body,
-                            request.getEntityId(),
-                            request.getEventType(),
-                            PROVIDER
-                    );
-
-            callbackRepository.save(callback);
 
             PaymentStatusUpdatedEvent event =
                     new PaymentStatusUpdatedEvent(
