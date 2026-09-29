@@ -1,0 +1,35 @@
+@startuml
+actor FakeProvider
+participant WebhookCollector
+database PostgreSQL
+participant OutboxPublisher
+participant Kafka
+participant TransactionService
+
+FakeProvider -> WebhookCollector: POST /api/v1/webhooks/payment-provider
+WebhookCollector -> WebhookCollector: Проверка токена безопасности
+
+alt Токен верный
+    WebhookCollector -> WebhookCollector: Валидация webhook payload
+
+    WebhookCollector -> PostgreSQL: BEGIN TRANSACTION
+    WebhookCollector -> PostgreSQL: Сохранение webhook-уведомления
+    WebhookCollector -> PostgreSQL: Сохранение outbox-события payment.status.updated
+    WebhookCollector -> PostgreSQL: COMMIT
+
+    PostgreSQL --> WebhookCollector: Callback + Outbox сохранены
+    WebhookCollector --> FakeProvider: 200 OK
+
+    OutboxPublisher -> PostgreSQL: Получение необработанных outbox-событий
+    PostgreSQL --> OutboxPublisher: payment.status.updated
+    OutboxPublisher -> Kafka: Публикация payment.status.updated
+    Kafka --> OutboxPublisher: Событие принято
+
+    Kafka --> TransactionService: payment.status.updated
+    TransactionService -> TransactionService: Финализация статуса транзакции
+
+else Токен неверный
+    WebhookCollector --> FakeProvider: 401 Unauthorized
+end
+
+@enduml
