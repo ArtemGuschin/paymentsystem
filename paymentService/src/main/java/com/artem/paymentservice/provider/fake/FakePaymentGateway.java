@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+
 @Slf4j
 @Component("FAKE")
 @RequiredArgsConstructor
@@ -22,6 +23,8 @@ public class FakePaymentGateway implements PaymentGateway {
 
     private final TransactionsApi transactionsApi;
     private final TransactionMapper transactionMapper;
+
+
 
     @Override
     public PaymentResponse processPayment(
@@ -43,6 +46,7 @@ public class FakePaymentGateway implements PaymentGateway {
                         request,
                         providerMethodType
                 );
+
 
         /*
          * 2. Создаём транзакцию у провайдера.

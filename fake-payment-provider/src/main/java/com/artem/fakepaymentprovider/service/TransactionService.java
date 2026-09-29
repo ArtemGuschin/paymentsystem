@@ -41,6 +41,9 @@ public class TransactionService {
     @Value("${webhook.security.token}")
     private String webhookSecurityToken;
 
+    @Value("${webhook.collector-url}")
+    private String webhookCollectorUrl;
+
 
     @Transactional
     public Transaction create(TransactionRequest transactionRequest) {
@@ -145,10 +148,20 @@ public class TransactionService {
 
     private void sendWebhook(TransactionEntity tx) {
 
-
         if (tx.getNotificationUrl() == null) {
             System.out.println(">>> NO WEBHOOK URL");
             return;
+        }
+
+        /*
+         * Security boundary:
+         * общий секрет Webhook Collector разрешено отправлять
+         * только на заранее доверенный адрес из конфигурации.
+         */
+        if (!webhookCollectorUrl.equals(tx.getNotificationUrl())) {
+            throw new IllegalArgumentException(
+                    "Untrusted webhook notification URL"
+            );
         }
 
         RestTemplate restTemplate = new RestTemplate();
@@ -169,7 +182,10 @@ public class TransactionService {
         webhook = webhookRepository.save(webhook);
 
         try {
-            System.out.println(">>> SENDING WEBHOOK TO: " + tx.getNotificationUrl());
+            System.out.println(
+                    ">>> SENDING WEBHOOK TO TRUSTED COLLECTOR: "
+                            + tx.getNotificationUrl()
+            );
 
             Map<String, Object> body = new HashMap<>();
             body.put("eventType", "TRANSACTION_SUCCESS");
@@ -178,7 +194,15 @@ public class TransactionService {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Webhook-Token", webhookSecurityToken);
+
+            /*
+             * Секрет добавляется только после проверки,
+             * что destination является trusted Collector.
+             */
+            headers.set(
+                    "X-Webhook-Token",
+                    webhookSecurityToken
+            );
 
             HttpEntity<Map<String, Object>> request =
                     new HttpEntity<>(body, headers);
@@ -189,11 +213,8 @@ public class TransactionService {
                     Void.class
             );
 
-
         } catch (Exception e) {
             e.printStackTrace();
-
-
         }
 
         webhookRepository.save(webhook);
