@@ -11,6 +11,7 @@ import com.artem.paymentservice.dto.PaymentResponse;
 import com.artem.paymentservice.dto.RequiredField;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Component
@@ -24,7 +25,7 @@ public class PaymentMapper {
         return new PaymentRequest()
                 .internalTransactionUid(dto.getInternalTransactionUid())
                 .methodId(dto.getMethodId())
-                .amount(dto.getAmount())
+                .amount(BigDecimal.valueOf(dto.getAmount()))
                 .currency(dto.getCurrency())
                 .userFields(dto.getUserFields());
     }

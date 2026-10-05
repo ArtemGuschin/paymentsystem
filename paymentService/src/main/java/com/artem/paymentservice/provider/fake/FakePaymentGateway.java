@@ -11,6 +11,7 @@ import com.artem.paymentservice.provider.PaymentGateway;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 
 
 @Slf4j
@@ -23,6 +24,9 @@ public class FakePaymentGateway implements PaymentGateway {
 
     private final TransactionsApi transactionsApi;
     private final TransactionMapper transactionMapper;
+
+    @Value("${webhook.collector-url}")
+    private String webhookCollectorUrl;
 
 
 
@@ -46,6 +50,7 @@ public class FakePaymentGateway implements PaymentGateway {
                         request,
                         providerMethodType
                 );
+        transactionRequest.setNotificationUrl(webhookCollectorUrl);
 
 
         /*

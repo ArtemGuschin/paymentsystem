@@ -13,13 +13,12 @@ COPY src src
 
 RUN ./gradlew clean bootJar -x test
 
-
 FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
-COPY --from=build /app/build/libs/transaction-service.jar app.jar
+COPY --from=build /app/build/libs/*.jar app.jar
 
-EXPOSE 8585
+EXPOSE 7878
 
 ENTRYPOINT ["java", "-jar", "app.jar"]

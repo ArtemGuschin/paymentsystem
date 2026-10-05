@@ -1,5 +1,9 @@
 services:
 
+  # =========================================================
+  # PAYMENT SERVICE DATABASE
+  # =========================================================
+
   individuals-payment-db:
     image: postgres:15
     container_name: individuals-payment-db
@@ -14,6 +18,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+
+  # =========================================================
+  # FAKE PAYMENT PROVIDER DATABASE
+  # =========================================================
 
   individuals-provider-db:
     image: postgres:15
@@ -30,6 +39,220 @@ services:
       timeout: 3s
       retries: 10
 
+
+  # =========================================================
+  # WEBHOOK COLLECTOR DATABASE
+  # =========================================================
+
+  webhook-collector-db:
+    image: postgres:15
+    container_name: individuals-webhook-collector-db
+    environment:
+      POSTGRES_DB: webhook_collector_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U postgres -d webhook_collector_db"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+
+  # =========================================================
+  # TRANSACTION SERVICE SHARD 0
+  # =========================================================
+
+  transaction-db-0:
+    image: postgres:15
+    container_name: individuals-transaction-db-0
+    environment:
+      POSTGRES_DB: transaction_db_0
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5437:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U postgres -d transaction_db_0"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+
+  # =========================================================
+  # TRANSACTION SERVICE SHARD 1
+  # =========================================================
+
+  transaction-db-1:
+    image: postgres:15
+    container_name: individuals-transaction-db-1
+    environment:
+      POSTGRES_DB: transaction_db_1
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5438:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U postgres -d transaction_db_1"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+
+  # =========================================================
+  # FLYWAY - TRANSACTION DB 0
+  # =========================================================
+
+  transaction-flyway-db-0:
+    image: flyway/flyway:10
+    container_name: individuals-transaction-flyway-db-0
+    command:
+      - -url=jdbc:postgresql://transaction-db-0:5432/transaction_db_0
+      - -user=postgres
+      - -password=postgres
+      - -locations=filesystem:/flyway/sql
+      - migrate
+    volumes:
+      - ../../transactionService/src/main/resources/db/migration:/flyway/sql:ro
+    depends_on:
+      transaction-db-0:
+        condition: service_healthy
+
+
+  # =========================================================
+  # FLYWAY - TRANSACTION DB 1
+  # =========================================================
+
+  transaction-flyway-db-1:
+    image: flyway/flyway:10
+    container_name: individuals-transaction-flyway-db-1
+    command:
+      - -url=jdbc:postgresql://transaction-db-1:5432/transaction_db_1
+      - -user=postgres
+      - -password=postgres
+      - -locations=filesystem:/flyway/sql
+      - migrate
+    volumes:
+      - ../../transactionService/src/main/resources/db/migration:/flyway/sql:ro
+    depends_on:
+      transaction-db-1:
+        condition: service_healthy
+
+
+  # =========================================================
+  # ZOOKEEPER
+  # =========================================================
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: individuals-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+
+  # =========================================================
+  # KAFKA
+  #
+  # localhost:9092  -> applications started from IntelliJ
+  # kafka:29092     -> applications inside Docker
+  # =========================================================
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: individuals-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+
+  # =========================================================
+  # KAFKA UI
+  # =========================================================
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: individuals-kafka-ui
+    ports:
+      - "8082:8080"
+    environment:
+      DYNAMIC_CONFIG_ENABLED: "true"
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+
+  # =========================================================
+  # WEBHOOK COLLECTOR SERVICE
+  # =========================================================
+
+  webhook-collector-service:
+    build:
+      context: ../../webhook-collector-service
+    container_name: individuals-webhook-collector
+    ports:
+      - "7878:7878"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://webhook-collector-db:5432/webhook_collector_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+
+      WEBHOOK_SECURITY_TOKEN: fake-provider-secret
+
+    depends_on:
+      webhook-collector-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+
+  # =========================================================
+  # FAKE PAYMENT PROVIDER
+  # =========================================================
+
   fake-payment-provider:
     build:
       context: ../../fake-payment-provider
@@ -40,9 +263,20 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://individuals-provider-db:5432/fake_provider
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+
+      WEBHOOK_COLLECTOR_URL: http://webhook-collector-service:7878/api/v1/webhooks/payment-provider
+      WEBHOOK_SECURITY_TOKEN: fake-provider-secret
+
     depends_on:
       individuals-provider-db:
         condition: service_healthy
+      webhook-collector-service:
+        condition: service_started
+
+
+  # =========================================================
+  # PAYMENT SERVICE
+  # =========================================================
 
   payment-service:
     build:
@@ -54,14 +288,48 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://individuals-payment-db:5432/payment_service
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+
       FAKE_PAYMENT_PROVIDER_URL: http://fake-payment-provider:8888
       FAKE_PAYMENT_PROVIDER_USERNAME: payment-service
       FAKE_PAYMENT_PROVIDER_PASSWORD: payment-service-secret
+
+      WEBHOOK_COLLECTOR_URL: http://webhook-collector-service:7878/api/v1/webhooks/payment-provider
+
     depends_on:
       individuals-payment-db:
         condition: service_healthy
       fake-payment-provider:
         condition: service_started
+      webhook-collector-service:
+        condition: service_started
+
+
+  # =========================================================
+  # TRANSACTION SERVICE
+  # =========================================================
+
+  transaction-service:
+    build:
+      context: ../../transactionService
+    container_name: individuals-transaction-service
+    ports:
+      - "8585:8585"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+
+    depends_on:
+      transaction-flyway-db-0:
+        condition: service_completed_successfully
+      transaction-flyway-db-1:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+
+
+  # =========================================================
+  # KEYCLOAK
+  # =========================================================
 
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.2
@@ -69,55 +337,84 @@ services:
     command:
       - start-dev
       - --import-realm
+
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME_STRICT: "false"
+
     volumes:
       - ./src/main/resources/realm-config.json:/opt/keycloak/data/import/realm-config.json:ro
+
     ports:
       - "9091:8080"
+
+
+  # =========================================================
+  # INDIVIDUALS API
+  # =========================================================
 
   individuals-api:
     build:
       context: .
       args:
         NEXUS_URL: http://host.docker.internal:8081/repository/maven-public/
+
     container_name: individuals-api
+
     ports:
       - "9090:9093"
+
     environment:
       PAYMENT_SERVICE_URL: http://payment-service:8083
+
       KEYCLOAK_SERVER_URL: http://keycloak:8080
       KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/individuals-realm
       KEYCLOAK_CLIENT_SECRET: nKn2N45FZaUnjvMYDbhcROGKbW6U4JZE
+
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
     depends_on:
       payment-service:
         condition: service_started
       keycloak:
         condition: service_started
 
+
+  # =========================================================
+  # PROMETHEUS
+  # =========================================================
+
   prometheus:
     image: prom/prometheus:latest
     container_name: individuals-prometheus
     ports:
       - "9095:9090"
+
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
     depends_on:
       payment-service:
         condition: service_started
 
+
+  # =========================================================
+  # GRAFANA
+  # =========================================================
+
   grafana:
     image: grafana/grafana:latest
     container_name: individuals-grafana
+
     ports:
       - "3000:3000"
+
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
+
     depends_on:
       - prometheus
