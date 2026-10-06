@@ -1,6 +1,5 @@
 package com.artem.individuals.service;
 
-
 import com.artem.individuals.dto.request.PaymentRequestDto;
 import com.artem.individuals.dto.request.TopUpConfirmRequestDto;
 import com.artem.individuals.dto.response.PaymentResponseDto;
@@ -23,6 +22,7 @@ public class TopUpOrchestrationService {
     public Mono<TopUpResultResponseDto> confirmTopUp(
             TopUpConfirmRequestDto dto
     ) {
+
         log.info(
                 "Start top up confirmation. userUid={}, walletUid={}, amount={}",
                 dto.getUserUid(),
@@ -35,7 +35,7 @@ public class TopUpOrchestrationService {
                 .flatMap(confirmResponse -> {
 
                     log.info(
-                            "Transaction confirmed. transactionUid={}, status={}",
+                            "Transaction created. transactionUid={}, status={}",
                             confirmResponse.getTransactionUuid(),
                             confirmResponse.getStatus()
                     );
@@ -52,27 +52,36 @@ public class TopUpOrchestrationService {
                                     .build();
 
                     return paymentService.processPayment(paymentRequest)
+
                             .doOnSuccess(paymentResponse ->
                                     log.info(
-                                            "Payment completed. providerTransactionId={}",
-                                            paymentResponse.getProviderTransactionId()
-                                    )).doOnError(ex ->
+                                            "Payment response received. providerTransactionId={}, status={}",
+                                            paymentResponse.getProviderTransactionId(),
+                                            paymentResponse.getStatus()
+                                    )
+                            )
+
+                            .doOnError(ex ->
                                     log.error(
                                             "Payment processing failed. transactionUid={}",
                                             confirmResponse.getTransactionUuid(),
                                             ex
-                                    ))
+                                    )
+                            )
+
                             .onErrorMap(ex ->
                                     new TopUpOrchestrationException(
                                             "Top up confirmation failed",
                                             ex
-                                    ))
+                                    )
+                            )
 
                             .map(paymentResponse ->
                                     buildResult(
                                             confirmResponse,
                                             paymentResponse
-                                    ));
+                                    )
+                            );
                 });
     }
 
@@ -85,8 +94,7 @@ public class TopUpOrchestrationService {
                 .transactionUuid(transaction.getTransactionUuid())
                 .transactionStatus(transaction.getStatus())
                 .providerTransactionId(payment.getProviderTransactionId())
-                // TODO получить реальный статус из PaymentService
-                .paymentStatus("SUCCESS")
+                .paymentStatus(payment.getStatus())
                 .build();
     }
 }

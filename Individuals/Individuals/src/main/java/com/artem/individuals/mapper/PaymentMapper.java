@@ -37,6 +37,11 @@ public class PaymentMapper {
 
         return PaymentResponseDto.builder()
                 .providerTransactionId(response.getProviderTransactionId())
+                .status(
+                        response.getStatus() == null
+                                ? null
+                                : response.getStatus().getValue()
+                )
                 .build();
     }
 
