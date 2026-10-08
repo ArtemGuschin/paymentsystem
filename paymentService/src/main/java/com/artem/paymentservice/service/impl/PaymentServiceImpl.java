@@ -137,7 +137,8 @@ public class PaymentServiceImpl implements PaymentService {
                 paymentMethodRepository
                         .findEligibleById(
                                 request.getMethodId().intValue(),
-                                request.getCurrency()
+                                request.getCurrency(),
+                                request.getCountryCode()
                         )
                         .orElseThrow(() ->
                                 new PaymentMethodNotFoundException(

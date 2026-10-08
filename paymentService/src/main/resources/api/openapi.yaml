@@ -183,6 +183,7 @@ components:
         - methodId
         - amount
         - currency
+        - countryCode
         - userFields
 
       properties:
@@ -205,6 +206,12 @@ components:
 
         currency:
           type: string
+
+        countryCode:
+          type: string
+          minLength: 3
+          maxLength: 3
+          example: NLD
 
         userFields:
           type: object

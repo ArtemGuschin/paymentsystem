@@ -49,6 +49,7 @@ public class TopUpOrchestrationService {
                                     .amount(dto.getAmount().doubleValue())
                                     .currency(dto.getCurrency())
                                     .userFields(dto.getPaymentFields())
+                                    .countryCode(dto.getCountryCode())
                                     .build();
 
                     return paymentService.processPayment(paymentRequest)

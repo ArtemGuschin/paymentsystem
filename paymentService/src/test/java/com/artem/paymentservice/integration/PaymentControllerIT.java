@@ -57,7 +57,6 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
     private PaymentMethodDefinitionRepository paymentMethodDefinitionRepository;
 
 
-
     @Autowired
     private PaymentReconciliationService paymentReconciliationService;
 
@@ -89,11 +88,11 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                                                 "application/json"
                                         )
                                         .withBody("""
-                                        {
-                                          "id": 123,
-                                          "status": "PENDING"
-                                        }
-                                        """)
+                                                {
+                                                  "id": 123,
+                                                  "status": "PENDING"
+                                                }
+                                                """)
                         )
         );
 
@@ -115,11 +114,11 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                                                 "application/json"
                                         )
                                         .withBody("""
-                                        {
-                                          "id": 123,
-                                          "status": "SUCCESS"
-                                        }
-                                        """)
+                                                {
+                                                  "id": 123,
+                                                  "status": "SUCCESS"
+                                                }
+                                                """)
                         )
         );
     }
@@ -162,15 +161,16 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
         );
 
         String request = """
-                {
-                  "internalTransactionUid":"11111111-1111-1111-1111-111111111111",
-                  "methodId": %d,
-                  "amount": 100.50,
-                  "currency": "EUR",
-                  "userFields": {
-                    "cardNumber":"4111111111111111"
-                  }
-                }
+                                {
+                                  "internalTransactionUid":"11111111-1111-1111-1111-111111111111",
+                                  "methodId": %d,
+                                  "amount": 100.50,
+                                  "currency": "EUR",
+                                   "countryCode": "NLD",
+                                   "userFields": {
+                                    "cardNumber":"4111111111111111"
+                                  }
+                                }
                 """.formatted(method.getId());
 
         mockMvc.perform(
@@ -191,6 +191,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                 paymentRepository.count()
         );
     }
+
     @Test
     void shouldBeIdempotentForRepeatedInternalTransactionUid() throws Exception {
 
@@ -227,16 +228,18 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
         );
 
         String request = """
-            {
-              "internalTransactionUid":"22222222-2222-2222-2222-222222222222",
-              "methodId": %d,
-              "amount": 100.50,
-              "currency": "EUR",
-              "userFields": {
-                "cardNumber":"4111111111111111"
-              }
-            }
-            """.formatted(method.getId());
+                            {
+                              "internalTransactionUid":"22222222-2222-2222-2222-222222222222",
+                              "methodId": %d,
+                              "amount": 100.50,
+                              "currency": "EUR",
+                "countryCode": "NLD",
+
+                              "userFields": {
+                                "cardNumber":"4111111111111111"
+                              }
+                            }
+                """.formatted(method.getId());
 
         // Первый запрос
         mockMvc.perform(
@@ -274,6 +277,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                 )
         );
     }
+
     @Test
     void shouldBeIdempotentForConcurrentRequests() throws Exception {
 
@@ -310,16 +314,18 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
         );
 
         String request = """
-            {
-              "internalTransactionUid":"33333333-3333-3333-3333-333333333333",
-              "methodId": %d,
-              "amount": 100.50,
-              "currency": "EUR",
-              "userFields": {
-                "cardNumber":"4111111111111111"
-              }
-            }
-            """.formatted(method.getId());
+                            {
+                              "internalTransactionUid":"33333333-3333-3333-3333-333333333333",
+                              "methodId": %d,
+                              "amount": 100.50,
+                              "currency": "EUR",
+                "countryCode": "NLD",
+
+                              "userFields": {
+                                "cardNumber":"4111111111111111"
+                              }
+                            }
+                """.formatted(method.getId());
 
         ExecutorService executorService =
                 Executors.newFixedThreadPool(2);
@@ -375,6 +381,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
             executorService.shutdown();
         }
     }
+
     @Test
     void shouldKeepPaymentPendingWhenProviderStatusIsUnknown()
             throws Exception {
@@ -393,11 +400,11 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                                                 "application/json"
                                         )
                                         .withBody("""
-                                    {
-                                      "id": 456,
-                                      "status": "PENDING"
-                                    }
-                                    """)
+                                                {
+                                                  "id": 456,
+                                                  "status": "PENDING"
+                                                }
+                                                """)
                         )
         );
 
@@ -413,11 +420,11 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                                                 "application/json"
                                         )
                                         .withBody("""
-                                    {
-                                      "id": 456,
-                                      "status": "PENDING"
-                                    }
-                                    """)
+                                                {
+                                                  "id": 456,
+                                                  "status": "PENDING"
+                                                }
+                                                """)
                         )
         );
 
@@ -454,16 +461,18 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
         );
 
         String request = """
-            {
-              "internalTransactionUid":"44444444-4444-4444-4444-444444444444",
-              "methodId": %d,
-              "amount": 100.50,
-              "currency": "EUR",
-              "userFields": {
-                "cardNumber":"4111111111111111"
-              }
-            }
-            """.formatted(method.getId());
+                            {
+                              "internalTransactionUid":"44444444-4444-4444-4444-444444444444",
+                              "methodId": %d,
+                              "amount": 100.50,
+                              "currency": "EUR",
+                "countryCode": "NLD",
+
+                              "userFields": {
+                                "cardNumber":"4111111111111111"
+                              }
+                            }
+                """.formatted(method.getId());
 
         mockMvc.perform(
                         post("/api/v1/payments")
@@ -489,6 +498,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
         assertEquals("456", payment.getExternalTransactionId());
         assertEquals(1, paymentRepository.count());
     }
+
     @Test
     void shouldKeepPaymentPendingWhenProviderStatusCannotBeRead()
             throws Exception {
@@ -510,11 +520,11 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                                                 "application/json"
                                         )
                                         .withBody("""
-                                    {
-                                      "id": 789,
-                                      "status": "PENDING"
-                                    }
-                                    """)
+                                                {
+                                                  "id": 789,
+                                                  "status": "PENDING"
+                                                }
+                                                """)
                         )
         );
 
@@ -567,16 +577,18 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
         );
 
         String request = """
-            {
-              "internalTransactionUid":"55555555-5555-5555-5555-555555555555",
-              "methodId": %d,
-              "amount": 100.50,
-              "currency": "EUR",
-              "userFields": {
-                "cardNumber":"4111111111111111"
-              }
-            }
-            """.formatted(method.getId());
+                            {
+                              "internalTransactionUid":"55555555-5555-5555-5555-555555555555",
+                              "methodId": %d,
+                              "amount": 100.50,
+                              "currency": "EUR",
+                "countryCode": "NLD",
+
+                              "userFields": {
+                                "cardNumber":"4111111111111111"
+                              }
+                            }
+                """.formatted(method.getId());
 
         mockMvc.perform(
                         post("/api/v1/payments")
@@ -602,6 +614,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
         assertEquals("789", payment.getExternalTransactionId());
         assertEquals(1, paymentRepository.count());
     }
+
     @Test
     void shouldReconcilePendingPaymentToSuccess() throws Exception {
 
@@ -623,11 +636,11 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                                                 "application/json"
                                         )
                                         .withBody("""
-                                    {
-                                      "id": 900,
-                                      "status": "PENDING"
-                                    }
-                                    """)
+                                                {
+                                                  "id": 900,
+                                                  "status": "PENDING"
+                                                }
+                                                """)
                         )
         );
 
@@ -643,11 +656,11 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                                                 "application/json"
                                         )
                                         .withBody("""
-                                    {
-                                      "id": 900,
-                                      "status": "PENDING"
-                                    }
-                                    """)
+                                                {
+                                                  "id": 900,
+                                                  "status": "PENDING"
+                                                }
+                                                """)
                         )
         );
 
@@ -689,16 +702,18 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                 "66666666-6666-6666-6666-666666666666";
 
         String request = """
-            {
-              "internalTransactionUid":"66666666-6666-6666-6666-666666666666",
-              "methodId": %d,
-              "amount": 100.50,
-              "currency": "EUR",
-              "userFields": {
-                "cardNumber":"4111111111111111"
-              }
-            }
-            """.formatted(method.getId());
+                            {
+                              "internalTransactionUid":"66666666-6666-6666-6666-666666666666",
+                              "methodId": %d,
+                              "amount": 100.50,
+                              "currency": "EUR",
+                "countryCode": "NLD",
+
+                              "userFields": {
+                                "cardNumber":"4111111111111111"
+                              }
+                            }
+                """.formatted(method.getId());
 
         /*
          * Создаём платеж.
@@ -754,11 +769,11 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                                                 "application/json"
                                         )
                                         .withBody("""
-                                    {
-                                      "id": 900,
-                                      "status": "SUCCESS"
-                                    }
-                                    """)
+                                                {
+                                                  "id": 900,
+                                                  "status": "SUCCESS"
+                                                }
+                                                """)
                         )
         );
 
@@ -786,6 +801,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                 reconciledPayment.getExternalTransactionId()
         );
     }
+
     @Test
     void shouldReturn400ForNegativeAmount() throws Exception {
 
@@ -828,6 +844,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                         .methodId(method.getId().longValue())
                         .amount(new BigDecimal("-100.00"))
                         .currency("EUR")
+                        .countryCode("NLD")
                         .userFields(Map.of(
                                 "iban",
                                 "NL91ABNA0417164300"
@@ -936,15 +953,17 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                 "77777777-7777-7777-7777-777777777777";
 
         String request = """
-                {
-                  "internalTransactionUid":"77777777-7777-7777-7777-777777777777",
-                  "methodId": %d,
-                  "amount": 100.50,
-                  "currency": "EUR",
-                  "userFields": {
-                    "cardNumber":"4111111111111111"
-                  }
-                }
+                                {
+                                  "internalTransactionUid":"77777777-7777-7777-7777-777777777777",
+                                  "methodId": %d,
+                                  "amount": 100.50,
+                                  "currency": "EUR",
+                "countryCode": "NLD",
+
+                                  "userFields": {
+                                    "cardNumber":"4111111111111111"
+                                  }
+                                }
                 """.formatted(method.getId());
 
         ExecutorService executorService =
@@ -1057,176 +1076,179 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
             executorService.shutdownNow();
         }
     }
-        @Test
-        void shouldRecoverPaymentWhenCreateResponseIsLost()
-        throws Exception {
 
-            wireMockServer.resetAll();
+    @Test
+    void shouldRecoverPaymentWhenCreateResponseIsLost()
+            throws Exception {
 
-            /*
-             * Имитируем ситуацию:
-             *
-             * provider получил POST и создал транзакцию,
-             * но HTTP-ответ до Payment Service не дошёл.
-             */
-            wireMockServer.stubFor(
-                    WireMock.post(
-                                    urlPathEqualTo("/api/v1/transactions")
-                            )
-                            .willReturn(
-                                    aResponse()
-                                            .withFault(Fault.EMPTY_RESPONSE)
-                            )
-            );
+        wireMockServer.resetAll();
 
-            String internalTransactionId =
-                    "88888888-8888-8888-8888-888888888888";
+        /*
+         * Имитируем ситуацию:
+         *
+         * provider получил POST и создал транзакцию,
+         * но HTTP-ответ до Payment Service не дошёл.
+         */
+        wireMockServer.stubFor(
+                WireMock.post(
+                                urlPathEqualTo("/api/v1/transactions")
+                        )
+                        .willReturn(
+                                aResponse()
+                                        .withFault(Fault.EMPTY_RESPONSE)
+                        )
+        );
 
-            /*
-             * Payment Service пытается восстановить операцию
-             * по externalId = internalTransactionUid.
-             */
-            wireMockServer.stubFor(
-                    WireMock.get(
-                                    urlEqualTo(
-                                            "/api/v1/transactions/by-external-id/"
-                                                    + internalTransactionId
-                                    )
-                            )
-                            .willReturn(
-                                    aResponse()
-                                            .withStatus(200)
-                                            .withHeader(
-                                                    "Content-Type",
-                                                    "application/json"
-                                            )
-                                            .withBody("""
-                                    {
-                                      "id": 902,
-                                      "status": "PENDING"
-                                    }
-                                    """)
-                            )
-            );
+        String internalTransactionId =
+                "88888888-8888-8888-8888-888888888888";
 
-            /*
-             * После восстановления providerTransactionId
-             * обычный polling получает SUCCESS.
-             */
-            wireMockServer.stubFor(
-                    WireMock.get(
-                                    urlEqualTo("/api/v1/transactions/902")
-                            )
-                            .willReturn(
-                                    aResponse()
-                                            .withStatus(200)
-                                            .withHeader(
-                                                    "Content-Type",
-                                                    "application/json"
-                                            )
-                                            .withBody("""
-                                    {
-                                      "id": 902,
-                                      "status": "SUCCESS"
-                                    }
-                                    """)
-                            )
-            );
+        /*
+         * Payment Service пытается восстановить операцию
+         * по externalId = internalTransactionUid.
+         */
+        wireMockServer.stubFor(
+                WireMock.get(
+                                urlEqualTo(
+                                        "/api/v1/transactions/by-external-id/"
+                                                + internalTransactionId
+                                )
+                        )
+                        .willReturn(
+                                aResponse()
+                                        .withStatus(200)
+                                        .withHeader(
+                                                "Content-Type",
+                                                "application/json"
+                                        )
+                                        .withBody("""
+                                                {
+                                                  "id": 902,
+                                                  "status": "PENDING"
+                                                }
+                                                """)
+                        )
+        );
 
-            PaymentProvider provider =
-                    paymentProviderRepository.save(
-                            PaymentProvider.builder()
-                                    .name("FAKE")
-                                    .description("Test provider")
-                                    .build()
-                    );
+        /*
+         * После восстановления providerTransactionId
+         * обычный polling получает SUCCESS.
+         */
+        wireMockServer.stubFor(
+                WireMock.get(
+                                urlEqualTo("/api/v1/transactions/902")
+                        )
+                        .willReturn(
+                                aResponse()
+                                        .withStatus(200)
+                                        .withHeader(
+                                                "Content-Type",
+                                                "application/json"
+                                        )
+                                        .withBody("""
+                                                {
+                                                  "id": 902,
+                                                  "status": "SUCCESS"
+                                                }
+                                                """)
+                        )
+        );
 
-            PaymentMethod method =
-                    paymentMethodRepository.save(
-                            PaymentMethod.builder()
-                                    .provider(provider)
-                                    .type("CARD")
-                                    .name("Visa")
-                                    .active(true)
-                                    .providerUniqueId(
-                                            UUID.randomUUID().toString()
-                                    )
-                                    .providerMethodType("CARD")
-                                    .profileType("INDIVIDUAL")
-                                    .build()
-                    );
+        PaymentProvider provider =
+                paymentProviderRepository.save(
+                        PaymentProvider.builder()
+                                .name("FAKE")
+                                .description("Test provider")
+                                .build()
+                );
 
-            paymentMethodDefinitionRepository.save(
-                    PaymentMethodDefinition.builder()
-                            .paymentMethod(method)
-                            .currencyCode("EUR")
-                            .countryAlpha3Code("NLD")
-                            .isAllCurrencies(false)
-                            .isAllCountries(true)
-                            .isPriority(true)
-                            .isActive(true)
-                            .build()
-            );
+        PaymentMethod method =
+                paymentMethodRepository.save(
+                        PaymentMethod.builder()
+                                .provider(provider)
+                                .type("CARD")
+                                .name("Visa")
+                                .active(true)
+                                .providerUniqueId(
+                                        UUID.randomUUID().toString()
+                                )
+                                .providerMethodType("CARD")
+                                .profileType("INDIVIDUAL")
+                                .build()
+                );
 
-            String request = """
-            {
-              "internalTransactionUid":"88888888-8888-8888-8888-888888888888",
-              "methodId": %d,
-              "amount": 100.50,
-              "currency": "EUR",
-              "userFields": {
-                "cardNumber":"4111111111111111"
-              }
-            }
-            """.formatted(method.getId());
+        paymentMethodDefinitionRepository.save(
+                PaymentMethodDefinition.builder()
+                        .paymentMethod(method)
+                        .currencyCode("EUR")
+                        .countryAlpha3Code("NLD")
+                        .isAllCurrencies(false)
+                        .isAllCountries(true)
+                        .isPriority(true)
+                        .isActive(true)
+                        .build()
+        );
 
-            mockMvc.perform(
-                            post("/api/v1/payments")
-                                    .with(httpBasic("admin", "admin"))
-                                    .contentType(MediaType.APPLICATION_JSON)
-                                    .content(request)
-                    )
-                    .andExpect(status().isOk())
-                    .andExpect(
-                            jsonPath("$.providerTransactionId")
-                                    .value("902")
-                    )
-                    .andExpect(
-                            jsonPath("$.status")
-                                    .value("SUCCESS")
-                    );
+        String request = """
+                            {
+                              "internalTransactionUid":"88888888-8888-8888-8888-888888888888",
+                              "methodId": %d,
+                              "amount": 100.50,
+                              "currency": "EUR",
+                "countryCode": "NLD",
 
-            Payment payment =
-                    paymentRepository
-                            .findByInternalTransactionId(
-                                    internalTransactionId
-                            )
-                            .orElseThrow();
+                              "userFields": {
+                                "cardNumber":"4111111111111111"
+                              }
+                            }
+                """.formatted(method.getId());
 
-            assertEquals(
-                    "902",
-                    payment.getExternalTransactionId()
-            );
+        mockMvc.perform(
+                        post("/api/v1/payments")
+                                .with(httpBasic("admin", "admin"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(request)
+                )
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.providerTransactionId")
+                                .value("902")
+                )
+                .andExpect(
+                        jsonPath("$.status")
+                                .value("SUCCESS")
+                );
 
-            assertEquals(
-                    "SUCCESS",
-                    payment.getStatus()
-            );
+        Payment payment =
+                paymentRepository
+                        .findByInternalTransactionId(
+                                internalTransactionId
+                        )
+                        .orElseThrow();
 
-            /*
-             * Убеждаемся, что после потери POST-ответа
-             * действительно был recovery-запрос.
-             */
-            wireMockServer.verify(
-                    1,
-                    WireMock.getRequestedFor(
-                            urlEqualTo(
-                                    "/api/v1/transactions/by-external-id/"
-                                            + internalTransactionId
-                            )
-                    )
-            );
-        }
+        assertEquals(
+                "902",
+                payment.getExternalTransactionId()
+        );
+
+        assertEquals(
+                "SUCCESS",
+                payment.getStatus()
+        );
+
+        /*
+         * Убеждаемся, что после потери POST-ответа
+         * действительно был recovery-запрос.
+         */
+        wireMockServer.verify(
+                1,
+                WireMock.getRequestedFor(
+                        urlEqualTo(
+                                "/api/v1/transactions/by-external-id/"
+                                        + internalTransactionId
+                        )
+                )
+        );
+    }
 
     @Test
     void shouldRecoverPendingPaymentOnRepeatedRequestAfterUnknownCreateResult()
@@ -1313,16 +1335,18 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
         );
 
         String request = """
-            {
-              "internalTransactionUid":"99999999-9999-9999-9999-999999999999",
-              "methodId": %d,
-              "amount": 100.50,
-              "currency": "EUR",
-              "userFields": {
-                "cardNumber":"4111111111111111"
-              }
-            }
-            """.formatted(method.getId());
+                            {
+                              "internalTransactionUid":"99999999-9999-9999-9999-999999999999",
+                              "methodId": %d,
+                              "amount": 100.50,
+                              "currency": "EUR",
+                "countryCode": "NLD",
+
+                              "userFields": {
+                                "cardNumber":"4111111111111111"
+                              }
+                            }
+                """.formatted(method.getId());
 
         /*
          * Первый запрос не может определить результат.
@@ -1434,11 +1458,11 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                                                 "application/json"
                                         )
                                         .withBody("""
-                                    {
-                                      "id": 903,
-                                      "status": "PENDING"
-                                    }
-                                    """)
+                                                {
+                                                  "id": 903,
+                                                  "status": "PENDING"
+                                                }
+                                                """)
                         )
         );
 
@@ -1459,11 +1483,11 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                                                 "application/json"
                                         )
                                         .withBody("""
-                                    {
-                                      "id": 903,
-                                      "status": "SUCCESS"
-                                    }
-                                    """)
+                                                {
+                                                  "id": 903,
+                                                  "status": "SUCCESS"
+                                                }
+                                                """)
                         )
         );
 
@@ -1635,16 +1659,18 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
          * Первый нормальный запрос.
          */
         String originalRequest = """
-            {
-              "internalTransactionUid":"%s",
-              "methodId": %d,
-              "amount": 100.50,
-              "currency": "EUR",
-              "userFields": {
-                "cardNumber":"4111111111111111"
-              }
-            }
-            """.formatted(
+                            {
+                              "internalTransactionUid":"%s",
+                              "methodId": %d,
+                              "amount": 100.50,
+                              "currency": "EUR",
+                "countryCode": "NLD",
+
+                              "userFields": {
+                                "cardNumber":"4111111111111111"
+                              }
+                            }
+                """.formatted(
                 internalTransactionUid,
                 firstMethod.getId()
         );
@@ -1677,16 +1703,18 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
          * ---------------------------------------------------------
          */
         String differentAmountRequest = """
-            {
-              "internalTransactionUid":"%s",
-              "methodId": %d,
-              "amount": 101.50,
-              "currency": "EUR",
-              "userFields": {
-                "cardNumber":"4111111111111111"
-              }
-            }
-            """.formatted(
+                            {
+                              "internalTransactionUid":"%s",
+                              "methodId": %d,
+                              "amount": 101.50,
+                              "currency": "EUR",
+                "countryCode": "NLD",
+
+                              "userFields": {
+                                "cardNumber":"4111111111111111"
+                              }
+                            }
+                """.formatted(
                 internalTransactionUid,
                 firstMethod.getId()
         );
@@ -1715,16 +1743,17 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
          * ---------------------------------------------------------
          */
         String differentCurrencyRequest = """
-            {
-              "internalTransactionUid":"%s",
-              "methodId": %d,
-              "amount": 100.50,
-              "currency": "USD",
-              "userFields": {
-                "cardNumber":"4111111111111111"
-              }
-            }
-            """.formatted(
+                {
+                  "internalTransactionUid":"%s",
+                  "methodId": %d,
+                  "amount": 100.50,
+                  "currency": "USD",
+"countryCode": "NLD",
+                  "userFields": {
+                    "cardNumber":"4111111111111111"
+                  }
+                }
+                """.formatted(
                 internalTransactionUid,
                 firstMethod.getId()
         );
@@ -1753,16 +1782,18 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
          * ---------------------------------------------------------
          */
         String differentMethodRequest = """
-            {
-              "internalTransactionUid":"%s",
-              "methodId": %d,
-              "amount": 100.50,
-              "currency": "EUR",
-              "userFields": {
-                "cardNumber":"4111111111111111"
-              }
-            }
-            """.formatted(
+                            {
+                              "internalTransactionUid":"%s",
+                              "methodId": %d,
+                              "amount": 100.50,
+                              "currency": "EUR",
+                "countryCode": "NLD",
+
+                              "userFields": {
+                                "cardNumber":"4111111111111111"
+                              }
+                            }
+                """.formatted(
                 internalTransactionUid,
                 secondMethod.getId()
         );
@@ -1839,4 +1870,154 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
         );
     }
 
+
+    @Test
+    void shouldRejectPaymentWhenMethodIsNotAvailableForCountry()
+            throws Exception {
+
+        PaymentProvider provider =
+                paymentProviderRepository.save(
+                        PaymentProvider.builder()
+                                .name("FAKE")
+                                .description("Test provider")
+                                .build()
+                );
+
+        PaymentMethod method =
+                paymentMethodRepository.save(
+                        PaymentMethod.builder()
+                                .provider(provider)
+                                .type("CARD")
+                                .name("Visa")
+                                .active(true)
+                                .providerUniqueId(
+                                        UUID.randomUUID().toString()
+                                )
+                                .providerMethodType("CARD")
+                                .profileType("INDIVIDUAL")
+                                .build()
+                );
+
+        /*
+         * Метод разрешён только:
+         *
+         * currency = EUR
+         * country  = NLD
+         */
+        paymentMethodDefinitionRepository.save(
+                PaymentMethodDefinition.builder()
+                        .paymentMethod(method)
+                        .currencyCode("EUR")
+                        .countryAlpha3Code("NLD")
+                        .isAllCurrencies(false)
+                        .isAllCountries(false)
+                        .isPriority(true)
+                        .isActive(true)
+                        .build()
+        );
+
+        /*
+         * =========================================================
+         * 1. Разрешённая страна: NLD
+         * =========================================================
+         */
+        String allowedRequest = """
+            {
+              "internalTransactionUid":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+              "methodId": %d,
+              "amount": 100.50,
+              "currency": "EUR",
+              "countryCode": "NLD",
+              "userFields": {
+                "cardNumber":"4111111111111111"
+              }
+            }
+            """.formatted(method.getId());
+
+        mockMvc.perform(
+                        post("/api/v1/payments")
+                                .with(
+                                        httpBasic(
+                                                "admin",
+                                                "admin"
+                                        )
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(allowedRequest)
+                )
+                .andExpect(
+                        status().isOk()
+                )
+                .andExpect(
+                        jsonPath("$.status")
+                                .value("SUCCESS")
+                );
+
+        /*
+         * =========================================================
+         * 2. Та же валюта и тот же methodId,
+         *    но страна USA.
+         *
+         * Метод для USA НЕ разрешён.
+         *
+         * Используем ДРУГОЙ internalTransactionUid,
+         * чтобы это был новый платёж,
+         * а не idempotent retry.
+         * =========================================================
+         */
+        String forbiddenCountryRequest = """
+            {
+              "internalTransactionUid":"cccccccc-cccc-cccc-cccc-cccccccccccc",
+              "methodId": %d,
+              "amount": 100.50,
+              "currency": "EUR",
+              "countryCode": "USA",
+              "userFields": {
+                "cardNumber":"4111111111111111"
+              }
+            }
+            """.formatted(method.getId());
+
+        mockMvc.perform(
+                        post("/api/v1/payments")
+                                .with(
+                                        httpBasic(
+                                                "admin",
+                                                "admin"
+                                        )
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(forbiddenCountryRequest)
+                )
+                .andExpect(
+                        status().isNotFound()
+                );
+
+        /*
+         * В БД должен существовать только разрешённый NLD-платёж.
+         */
+        assertEquals(
+                1,
+                paymentRepository.count()
+        );
+
+        /*
+         * Provider должен быть вызван только для NLD.
+         *
+         * USA-запрос должен быть остановлен раньше.
+         */
+        wireMockServer.verify(
+                1,
+                WireMock.postRequestedFor(
+                        urlPathEqualTo(
+                                "/api/v1/transactions"
+                        )
+                )
+        );
     }
+
+}

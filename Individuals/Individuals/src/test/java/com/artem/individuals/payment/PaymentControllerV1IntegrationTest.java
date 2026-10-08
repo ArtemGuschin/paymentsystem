@@ -69,7 +69,9 @@ class PaymentControllerV1IntegrationTest
 
         request.setMethodId(1L);
         request.setAmount(1500.00);
+
         request.setCurrency("USD");
+        request.setCountryCode("NLD");
 
         request.setUserFields(
                 Map.of(
@@ -134,6 +136,7 @@ class PaymentControllerV1IntegrationTest
         request.setMethodId(1L);
         request.setAmount(1500.00);
         request.setCurrency("USD");
+        request.setCountryCode("NLD");
 
         request.setUserFields(
                 Map.of(

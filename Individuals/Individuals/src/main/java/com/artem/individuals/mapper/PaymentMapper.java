@@ -27,6 +27,7 @@ public class PaymentMapper {
                 .methodId(dto.getMethodId())
                 .amount(BigDecimal.valueOf(dto.getAmount()))
                 .currency(dto.getCurrency())
+                .countryCode(dto.getCountryCode())
                 .userFields(dto.getUserFields());
     }
 

@@ -1,8 +1,8 @@
 package com.artem.individuals.dto.request;
 
-
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,7 +29,10 @@ public class PaymentRequestDto {
     @NotBlank
     private String currency;
 
+    @NotBlank
+    @Size(min = 3, max = 3)
+    private String countryCode;
+
     @NotNull
     private Map<String, String> userFields;
-
 }

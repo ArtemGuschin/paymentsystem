@@ -45,7 +45,8 @@ dependencies {
     implementation 'org.springframework:spring-tx'
     implementation 'com.artem:person-service-openapi:1.0.8'
 
-    implementation 'com.artem:payment-service-client:0.0.1-20261002.095622-4'
+
+    implementation 'com.artem:payment-service-client:0.0.1-20261008.122700-5'
     implementation 'com.artem:transaction-client:0.0.1-20261003.130104-3'
 
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign:4.1.3'
