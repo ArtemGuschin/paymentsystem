@@ -201,6 +201,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/Transaction'
 
+  /api/v1/transactions/by-external-id/{externalId}:
+    get:
+      tags: [ Transactions ]
+      operationId: getTransactionByExternalId
+      parameters:
+        - in: path
+          name: externalId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+
   /api/v1/payouts:
     post:
       tags: [Payouts]

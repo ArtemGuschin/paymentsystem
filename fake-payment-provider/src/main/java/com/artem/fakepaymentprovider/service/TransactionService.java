@@ -89,6 +89,25 @@ public class TransactionService {
                 .orElseThrow(() -> new RuntimeException("Transaction not found"));
     }
 
+    @Transactional(readOnly = true)
+    public Transaction getByExternalId(String externalId) {
+
+        MerchantEntity merchant = getCurrentMerchant();
+
+        return transactionRepository
+                .findByMerchant_IdAndExternalId(
+                        merchant.getId(),
+                        externalId
+                )
+                .map(mapper::toDto)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Transaction not found"
+                        )
+                );
+    }
+
 
     @Transactional(readOnly = true)
     public List<Transaction> getAll(OffsetDateTime startDate, OffsetDateTime endDate) {
