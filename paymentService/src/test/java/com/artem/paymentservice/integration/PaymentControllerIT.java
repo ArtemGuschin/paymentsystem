@@ -1562,4 +1562,281 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
         );
     }
 
+    @Test
+    void shouldReturnConflictWhenIdempotencyKeyIsReusedWithDifferentParameters()
+            throws Exception {
+
+        PaymentProvider provider =
+                paymentProviderRepository.save(
+                        PaymentProvider.builder()
+                                .name("FAKE")
+                                .description("Test provider")
+                                .build()
+                );
+
+        PaymentMethod firstMethod =
+                paymentMethodRepository.save(
+                        PaymentMethod.builder()
+                                .provider(provider)
+                                .type("CARD")
+                                .name("Visa")
+                                .active(true)
+                                .providerUniqueId(
+                                        UUID.randomUUID().toString()
+                                )
+                                .providerMethodType("CARD")
+                                .profileType("INDIVIDUAL")
+                                .build()
+                );
+
+        PaymentMethod secondMethod =
+                paymentMethodRepository.save(
+                        PaymentMethod.builder()
+                                .provider(provider)
+                                .type("CARD")
+                                .name("Mastercard")
+                                .active(true)
+                                .providerUniqueId(
+                                        UUID.randomUUID().toString()
+                                )
+                                .providerMethodType("CARD")
+                                .profileType("INDIVIDUAL")
+                                .build()
+                );
+
+        paymentMethodDefinitionRepository.save(
+                PaymentMethodDefinition.builder()
+                        .paymentMethod(firstMethod)
+                        .currencyCode("EUR")
+                        .countryAlpha3Code("NLD")
+                        .isAllCurrencies(false)
+                        .isAllCountries(true)
+                        .isPriority(true)
+                        .isActive(true)
+                        .build()
+        );
+
+        paymentMethodDefinitionRepository.save(
+                PaymentMethodDefinition.builder()
+                        .paymentMethod(secondMethod)
+                        .currencyCode("EUR")
+                        .countryAlpha3Code("NLD")
+                        .isAllCurrencies(false)
+                        .isAllCountries(true)
+                        .isPriority(true)
+                        .isActive(true)
+                        .build()
+        );
+
+        String internalTransactionUid =
+                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+
+        /*
+         * Первый нормальный запрос.
+         */
+        String originalRequest = """
+            {
+              "internalTransactionUid":"%s",
+              "methodId": %d,
+              "amount": 100.50,
+              "currency": "EUR",
+              "userFields": {
+                "cardNumber":"4111111111111111"
+              }
+            }
+            """.formatted(
+                internalTransactionUid,
+                firstMethod.getId()
+        );
+
+        mockMvc.perform(
+                        post("/api/v1/payments")
+                                .with(
+                                        httpBasic(
+                                                "admin",
+                                                "admin"
+                                        )
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(originalRequest)
+                )
+                .andExpect(
+                        status().isOk()
+                )
+                .andExpect(
+                        jsonPath("$.status")
+                                .value("SUCCESS")
+                );
+
+        /*
+         * ---------------------------------------------------------
+         * 1. Тот же idempotency key,
+         *    но ДРУГАЯ СУММА.
+         * ---------------------------------------------------------
+         */
+        String differentAmountRequest = """
+            {
+              "internalTransactionUid":"%s",
+              "methodId": %d,
+              "amount": 101.50,
+              "currency": "EUR",
+              "userFields": {
+                "cardNumber":"4111111111111111"
+              }
+            }
+            """.formatted(
+                internalTransactionUid,
+                firstMethod.getId()
+        );
+
+        mockMvc.perform(
+                        post("/api/v1/payments")
+                                .with(
+                                        httpBasic(
+                                                "admin",
+                                                "admin"
+                                        )
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(differentAmountRequest)
+                )
+                .andExpect(
+                        status().isConflict()
+                );
+
+        /*
+         * ---------------------------------------------------------
+         * 2. Тот же idempotency key,
+         *    но ДРУГАЯ ВАЛЮТА.
+         * ---------------------------------------------------------
+         */
+        String differentCurrencyRequest = """
+            {
+              "internalTransactionUid":"%s",
+              "methodId": %d,
+              "amount": 100.50,
+              "currency": "USD",
+              "userFields": {
+                "cardNumber":"4111111111111111"
+              }
+            }
+            """.formatted(
+                internalTransactionUid,
+                firstMethod.getId()
+        );
+
+        mockMvc.perform(
+                        post("/api/v1/payments")
+                                .with(
+                                        httpBasic(
+                                                "admin",
+                                                "admin"
+                                        )
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(differentCurrencyRequest)
+                )
+                .andExpect(
+                        status().isConflict()
+                );
+
+        /*
+         * ---------------------------------------------------------
+         * 3. Тот же idempotency key,
+         *    но ДРУГОЙ PAYMENT METHOD.
+         * ---------------------------------------------------------
+         */
+        String differentMethodRequest = """
+            {
+              "internalTransactionUid":"%s",
+              "methodId": %d,
+              "amount": 100.50,
+              "currency": "EUR",
+              "userFields": {
+                "cardNumber":"4111111111111111"
+              }
+            }
+            """.formatted(
+                internalTransactionUid,
+                secondMethod.getId()
+        );
+
+        mockMvc.perform(
+                        post("/api/v1/payments")
+                                .with(
+                                        httpBasic(
+                                                "admin",
+                                                "admin"
+                                        )
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(differentMethodRequest)
+                )
+                .andExpect(
+                        status().isConflict()
+                );
+
+        /*
+         * Несмотря на три конфликтующих повтора,
+         * в БД должна остаться только исходная операция.
+         */
+        assertEquals(
+                1,
+                paymentRepository.count()
+        );
+
+        /*
+         * Provider должен был получить только самый первый запрос.
+         *
+         * Конфликтующие retries не должны уходить наружу.
+         */
+        wireMockServer.verify(
+                1,
+                WireMock.postRequestedFor(
+                        urlPathEqualTo(
+                                "/api/v1/transactions"
+                        )
+                )
+        );
+
+        Payment savedPayment =
+                paymentRepository
+                        .findByInternalTransactionId(
+                                internalTransactionUid
+                        )
+                        .orElseThrow();
+
+        /*
+         * Исходные данные также не должны были измениться.
+         */
+        assertEquals(
+                0,
+                savedPayment
+                        .getAmount()
+                        .compareTo(
+                                new BigDecimal("100.50")
+                        )
+        );
+
+        assertEquals(
+                "EUR",
+                savedPayment.getCurrency()
+        );
+
+        assertEquals(
+                firstMethod.getId(),
+                savedPayment
+                        .getPaymentMethod()
+                        .getId()
+        );
+    }
+
     }

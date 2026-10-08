@@ -47,6 +47,17 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(message));
     }
+    @ExceptionHandler(PaymentIdempotencyConflictException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentIdempotencyConflict(
+            PaymentIdempotencyConflictException ex
+    ) {
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(ex.getMessage()));
+    }
+
+
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(

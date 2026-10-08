@@ -59,6 +59,9 @@ paths:
         "400":
           description: Invalid request
 
+        "409":
+          description: Idempotency key already exists with different payment parameters
+
         "500":
           description: Internal server error
 

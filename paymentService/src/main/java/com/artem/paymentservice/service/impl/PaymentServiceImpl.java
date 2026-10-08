@@ -3,6 +3,7 @@ package com.artem.paymentservice.service.impl;
 import com.artem.paymentservice.dto.PaymentRequest;
 import com.artem.paymentservice.dto.PaymentResponse;
 import com.artem.paymentservice.dto.PaymentStatus;
+import com.artem.paymentservice.exception.PaymentIdempotencyConflictException;
 import com.artem.paymentservice.exception.PaymentMethodNotFoundException;
 import com.artem.paymentservice.exception.PaymentProviderUnavailableException;
 import com.artem.paymentservice.exception.PaymentResultUnknownException;
@@ -56,6 +57,21 @@ public class PaymentServiceImpl implements PaymentService {
                         .orElse(null);
 
         /*
+         * Один и тот же idempotency key разрешён
+         * только для ТОГО ЖЕ бизнес-запроса.
+         *
+         * Если amount / currency / methodId изменились,
+         * это уже конфликт, а не idempotent retry.
+         */
+        if (existingPayment != null) {
+
+            validateIdempotentRequest(
+                    existingPayment,
+                    request
+            );
+        }
+
+        /*
          * Особый recovery-сценарий:
          *
          * Payment уже существует локально,
@@ -78,6 +94,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         /*
          * Обычный идемпотентный повтор.
+         *
+         * Параметры мы уже проверили выше.
          *
          * Если это НЕ специальный recovery-сценарий,
          * просто возвращаем уже сохранённый результат.
@@ -166,9 +184,10 @@ public class PaymentServiceImpl implements PaymentService {
             } catch (DataIntegrityViolationException ex) {
 
                 /*
-                 * Конкурентный запрос уже создал Payment.
+                 * Конкурентный запрос уже успел создать Payment.
                  *
-                 * Второй provider call здесь не запускаем.
+                 * Загружаем его и ОБЯЗАТЕЛЬНО сравниваем
+                 * исходные параметры запроса.
                  */
                 log.info(
                         "Concurrent idempotent request detected. " +
@@ -182,6 +201,15 @@ public class PaymentServiceImpl implements PaymentService {
                                         internalTransactionId
                                 )
                                 .orElseThrow(() -> ex);
+
+                /*
+                 * Даже при race condition одинаковый UUID
+                 * с другими параметрами должен дать 409.
+                 */
+                validateIdempotentRequest(
+                        concurrentPayment,
+                        request
+                );
 
                 log.info(
                         "Returning existing payment after concurrent insert. " +
@@ -325,7 +353,10 @@ public class PaymentServiceImpl implements PaymentService {
             );
 
             if (!recoverExistingPayment) {
-                paymentStateService.markFailed(payment);
+
+                paymentStateService.markFailed(
+                        payment
+                );
             }
 
             throw new IllegalStateException(
@@ -344,7 +375,10 @@ public class PaymentServiceImpl implements PaymentService {
             );
 
             if (!recoverExistingPayment) {
-                paymentStateService.markFailed(payment);
+
+                paymentStateService.markFailed(
+                        payment
+                );
             }
 
             throw new IllegalStateException(
@@ -360,7 +394,10 @@ public class PaymentServiceImpl implements PaymentService {
             );
 
             if (!recoverExistingPayment) {
-                paymentStateService.markFailed(payment);
+
+                paymentStateService.markFailed(
+                        payment
+                );
             }
 
             throw new IllegalStateException(
@@ -440,5 +477,79 @@ public class PaymentServiceImpl implements PaymentService {
         );
 
         return providerResponse;
+    }
+
+    /*
+     * Проверяем семантику idempotency key.
+     *
+     * Один internalTransactionUid может повторно использоваться
+     * только с теми же:
+     *
+     * - amount
+     * - currency
+     * - methodId
+     *
+     * Иначе это уже другая бизнес-операция
+     * под тем же idempotency key.
+     */
+    private void validateIdempotentRequest(
+            Payment existingPayment,
+            PaymentRequest request
+    ) {
+
+        /*
+         * BigDecimal нельзя сравнивать через equals(),
+         * потому что:
+         *
+         * 100.5 != 100.50 через equals()
+         *
+         * Но денежное значение у них одинаковое.
+         */
+        boolean sameAmount =
+                existingPayment
+                        .getAmount()
+                        .compareTo(
+                                request.getAmount()
+                        ) == 0;
+
+        boolean sameCurrency =
+                existingPayment
+                        .getCurrency()
+                        .equals(
+                                request.getCurrency()
+                        );
+
+        boolean sameMethod =
+                existingPayment
+                        .getPaymentMethod()
+                        .getId()
+                        .longValue()
+                        == request
+                        .getMethodId()
+                        .longValue();
+
+        if (!sameAmount
+                || !sameCurrency
+                || !sameMethod) {
+
+            log.warn(
+                    "Idempotency conflict detected. " +
+                            "internalTransactionId={}, " +
+                            "existingMethodId={}, requestMethodId={}, " +
+                            "existingAmount={}, requestAmount={}, " +
+                            "existingCurrency={}, requestCurrency={}",
+                    existingPayment.getInternalTransactionId(),
+                    existingPayment.getPaymentMethod().getId(),
+                    request.getMethodId(),
+                    existingPayment.getAmount(),
+                    request.getAmount(),
+                    existingPayment.getCurrency(),
+                    request.getCurrency()
+            );
+
+            throw new PaymentIdempotencyConflictException(
+                    existingPayment.getInternalTransactionId()
+            );
+        }
     }
 }
