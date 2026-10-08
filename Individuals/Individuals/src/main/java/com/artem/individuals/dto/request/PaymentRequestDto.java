@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
 
@@ -24,7 +25,7 @@ public class PaymentRequestDto {
     private Long methodId;
 
     @NotNull
-    private Double amount;
+    private BigDecimal amount;
 
     @NotBlank
     private String currency;

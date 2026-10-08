@@ -46,7 +46,7 @@ public class TopUpOrchestrationService {
                                             confirmResponse.getTransactionUuid()
                                     )
                                     .methodId(dto.getPaymentMethodId())
-                                    .amount(dto.getAmount().doubleValue())
+                                    .amount(dto.getAmount())
                                     .currency(dto.getCurrency())
                                     .userFields(dto.getPaymentFields())
                                     .countryCode(dto.getCountryCode())

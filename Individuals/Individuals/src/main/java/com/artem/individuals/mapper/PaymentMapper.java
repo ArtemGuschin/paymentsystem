@@ -25,7 +25,7 @@ public class PaymentMapper {
         return new PaymentRequest()
                 .internalTransactionUid(dto.getInternalTransactionUid())
                 .methodId(dto.getMethodId())
-                .amount(BigDecimal.valueOf(dto.getAmount()))
+                .amount(dto.getAmount())
                 .currency(dto.getCurrency())
                 .countryCode(dto.getCountryCode())
                 .userFields(dto.getUserFields());

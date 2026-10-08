@@ -234,7 +234,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                               "amount": 100.50,
                               "currency": "EUR",
                 "countryCode": "NLD",
-
+                
                               "userFields": {
                                 "cardNumber":"4111111111111111"
                               }
@@ -320,7 +320,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                               "amount": 100.50,
                               "currency": "EUR",
                 "countryCode": "NLD",
-
+                
                               "userFields": {
                                 "cardNumber":"4111111111111111"
                               }
@@ -467,7 +467,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                               "amount": 100.50,
                               "currency": "EUR",
                 "countryCode": "NLD",
-
+                
                               "userFields": {
                                 "cardNumber":"4111111111111111"
                               }
@@ -583,7 +583,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                               "amount": 100.50,
                               "currency": "EUR",
                 "countryCode": "NLD",
-
+                
                               "userFields": {
                                 "cardNumber":"4111111111111111"
                               }
@@ -708,7 +708,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                               "amount": 100.50,
                               "currency": "EUR",
                 "countryCode": "NLD",
-
+                
                               "userFields": {
                                 "cardNumber":"4111111111111111"
                               }
@@ -959,7 +959,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                                   "amount": 100.50,
                                   "currency": "EUR",
                 "countryCode": "NLD",
-
+                
                                   "userFields": {
                                     "cardNumber":"4111111111111111"
                                   }
@@ -1195,7 +1195,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                               "amount": 100.50,
                               "currency": "EUR",
                 "countryCode": "NLD",
-
+                
                               "userFields": {
                                 "cardNumber":"4111111111111111"
                               }
@@ -1341,7 +1341,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                               "amount": 100.50,
                               "currency": "EUR",
                 "countryCode": "NLD",
-
+                
                               "userFields": {
                                 "cardNumber":"4111111111111111"
                               }
@@ -1665,7 +1665,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                               "amount": 100.50,
                               "currency": "EUR",
                 "countryCode": "NLD",
-
+                
                               "userFields": {
                                 "cardNumber":"4111111111111111"
                               }
@@ -1709,7 +1709,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                               "amount": 101.50,
                               "currency": "EUR",
                 "countryCode": "NLD",
-
+                
                               "userFields": {
                                 "cardNumber":"4111111111111111"
                               }
@@ -1743,16 +1743,16 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
          * ---------------------------------------------------------
          */
         String differentCurrencyRequest = """
-                {
-                  "internalTransactionUid":"%s",
-                  "methodId": %d,
-                  "amount": 100.50,
-                  "currency": "USD",
-"countryCode": "NLD",
-                  "userFields": {
-                    "cardNumber":"4111111111111111"
-                  }
-                }
+                                {
+                                  "internalTransactionUid":"%s",
+                                  "methodId": %d,
+                                  "amount": 100.50,
+                                  "currency": "USD",
+                "countryCode": "NLD",
+                                  "userFields": {
+                                    "cardNumber":"4111111111111111"
+                                  }
+                                }
                 """.formatted(
                 internalTransactionUid,
                 firstMethod.getId()
@@ -1788,7 +1788,7 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                               "amount": 100.50,
                               "currency": "EUR",
                 "countryCode": "NLD",
-
+                
                               "userFields": {
                                 "cardNumber":"4111111111111111"
                               }
@@ -1922,17 +1922,17 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
          * =========================================================
          */
         String allowedRequest = """
-            {
-              "internalTransactionUid":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-              "methodId": %d,
-              "amount": 100.50,
-              "currency": "EUR",
-              "countryCode": "NLD",
-              "userFields": {
-                "cardNumber":"4111111111111111"
-              }
-            }
-            """.formatted(method.getId());
+                {
+                  "internalTransactionUid":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                  "methodId": %d,
+                  "amount": 100.50,
+                  "currency": "EUR",
+                  "countryCode": "NLD",
+                  "userFields": {
+                    "cardNumber":"4111111111111111"
+                  }
+                }
+                """.formatted(method.getId());
 
         mockMvc.perform(
                         post("/api/v1/payments")
@@ -1968,17 +1968,17 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
          * =========================================================
          */
         String forbiddenCountryRequest = """
-            {
-              "internalTransactionUid":"cccccccc-cccc-cccc-cccc-cccccccccccc",
-              "methodId": %d,
-              "amount": 100.50,
-              "currency": "EUR",
-              "countryCode": "USA",
-              "userFields": {
-                "cardNumber":"4111111111111111"
-              }
-            }
-            """.formatted(method.getId());
+                {
+                  "internalTransactionUid":"cccccccc-cccc-cccc-cccc-cccccccccccc",
+                  "methodId": %d,
+                  "amount": 100.50,
+                  "currency": "EUR",
+                  "countryCode": "USA",
+                  "userFields": {
+                    "cardNumber":"4111111111111111"
+                  }
+                }
+                """.formatted(method.getId());
 
         mockMvc.perform(
                         post("/api/v1/payments")
@@ -2018,6 +2018,35 @@ public class PaymentControllerIT extends AbstractIntegrationTest {
                         )
                 )
         );
+
+
+    }
+
+    @Test
+    void shouldRejectPaymentAmountWithMoreThanTwoDecimalPlaces() throws Exception {
+
+        String requestBody = """
+                {
+                  "internalTransactionUid": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+                  "methodId": 1,
+                  "amount": 100.123,
+                  "currency": "EUR",
+                  "countryCode": "NLD",
+                  "userFields": {
+                    "cardNumber": "4111111111111111",
+                    "cardHolder": "Artem Test",
+                    "cvv": "123"
+                  }
+                }
+                """;
+
+        mockMvc.perform(
+                        post("/api/v1/payments")
+                                .with(httpBasic("admin", "admin"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
+                .andExpect(status().isBadRequest());
     }
 
 }
