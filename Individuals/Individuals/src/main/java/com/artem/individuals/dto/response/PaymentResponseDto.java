@@ -13,5 +13,6 @@ import lombok.NoArgsConstructor;
 public class PaymentResponseDto {
 
     private String providerTransactionId;
+    private String status;
 
 }

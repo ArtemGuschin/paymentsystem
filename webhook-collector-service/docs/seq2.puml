@@ -1,0 +1,28 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_TOP_DOWN()
+
+' Fake Payment Provider эмулирует внешнюю систему (банк)
+System_Ext(fakeProvider, "Fake Payment Provider", "Эмулятор внешнего платежного провайдера")
+
+System_Boundary(paymentSystem, "Payment System") {
+
+    Container(webhookCollector, "Webhook Collector Service","Spring Boot","Прием, проверка и обработка webhook-уведомлений" )
+
+    ContainerDb(database,"PostgreSQL DB","PostgreSQL","Хранение callback и outbox-событий")
+
+    Container(kafka,"Kafka","Apache Kafka","Передача событий между сервисами")
+
+    Container(transactionService,"Transaction Service","Spring Boot","Обработка события и присвоение финального статуса транзакции")
+}
+
+Rel(fakeProvider,webhookCollector,"Отправляет webhook-уведомления","HTTPS")
+
+Rel(webhookCollector,database,"Сохраняет callback и outbox-событие в одной транзакции","JPA/JDBC")
+
+Rel(webhookCollector,kafka,"Публикует payment.status.updated через Transactional Outbox","Kafka")
+
+Rel(kafka,transactionService,"Передает payment.status.updated","Kafka")
+
+@enduml

@@ -2,6 +2,7 @@ package com.artem.individuals.service;
 
 
 import com.artem.api.UsersApi;
+import org.springframework.test.context.ActiveProfiles;
 import com.artem.individuals.client.KeycloakIntegrationClient;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +26,7 @@ import org.wiremock.integrations.testcontainers.WireMockContainer;
 @AutoConfigureWebTestClient
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
+@ActiveProfiles("test")
 public class TestContainersConfig {
     @Autowired
     private UsersApi usersApi;
@@ -54,10 +56,15 @@ public class TestContainersConfig {
         wireMockContainer.start();
 
         // Настраиваем WireMock
-        WireMock.configureFor("localhost", wireMockContainer.getMappedPort(8080));
+        WireMock.configureFor(
+                "localhost",
+                wireMockContainer.getMappedPort(8080)
+        );
+
         setupPersonServiceStubs();
         setupKeycloak();
         setupTopUpStubs();
+
     }
 
 
@@ -121,7 +128,14 @@ public class TestContainersConfig {
     }
     @BeforeEach
     void setup() {
+
+        WireMock.configureFor(
+                wireMockContainer.getHost(),
+                wireMockContainer.getMappedPort(8080)
+        );
+
         WireMock.reset();
+
         setupPersonServiceStubs();
         setupTopUpStubs();
     }
@@ -184,13 +198,20 @@ public class TestContainersConfig {
 
 
 
-    private static void  setupTopUpStubs() {
+    private static void setupTopUpStubs() {
 
-        WireMock.stubFor(WireMock.post(WireMock.urlEqualTo("/topup/init"))
-                .willReturn(WireMock.aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("""
+        WireMock.stubFor(
+                WireMock.post(
+                                WireMock.urlEqualTo("/topup/init")
+                        )
+                        .willReturn(
+                                WireMock.aResponse()
+                                        .withStatus(200)
+                                        .withHeader(
+                                                "Content-Type",
+                                                "application/json"
+                                        )
+                                        .withBody("""
                                     {
                                       "available": true,
                                       "fee": 0.000,
@@ -198,18 +219,52 @@ public class TestContainersConfig {
                                       "currency": "RUB",
                                       "message": null
                                     }
-                                """)));
+                                    """)
+                        )
+        );
 
-        WireMock.stubFor(WireMock.post(WireMock.urlEqualTo("/topup/confirm"))
-                .willReturn(WireMock.aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("""
+        WireMock.stubFor(
+                WireMock.post(
+                                WireMock.urlEqualTo("/topup/confirm")
+                        )
+                        .willReturn(
+                                WireMock.aResponse()
+                                        .withStatus(200)
+                                        .withHeader(
+                                                "Content-Type",
+                                                "application/json"
+                                        )
+                                        .withBody("""
                                     {
                                       "transactionUid": "123e4567-e89b-12d3-a456-426614174000",
                                       "status": "SUCCESS"
                                     }
-                                """)));
+                                    """)
+                        )
+        );
+    }
+
+    private static void setupPaymentStubs() {
+
+        WireMock.stubFor(
+                WireMock.post(
+                                WireMock.urlEqualTo("/api/v1/payments")
+                        )
+                        .willReturn(
+                                WireMock.aResponse()
+                                        .withStatus(200)
+                                        .withHeader(
+                                                "Content-Type",
+                                                "application/json"
+                                        )
+                                        .withBody("""
+                                    {
+                                      "providerTransactionId": "123e4567-e89b-12d3-a456-426614174111",
+                                      "status": "SUCCESS"
+                                    }
+                                    """)
+                        )
+        );
     }
 
 }

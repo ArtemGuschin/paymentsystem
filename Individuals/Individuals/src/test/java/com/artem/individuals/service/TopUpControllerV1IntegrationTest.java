@@ -4,11 +4,14 @@ import com.artem.individuals.dto.request.RegistrationRequest;
 import com.artem.individuals.dto.request.TopUpConfirmRequestDto;
 import com.artem.individuals.dto.response.TokenResponse;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -23,6 +26,40 @@ public class TopUpControllerV1IntegrationTest extends TestContainersConfig {
                 .loginUser(email, password)
                 .map(TokenResponse::getAccessToken)
                 .block();
+    }
+
+    @DynamicPropertySource
+    static void registerPaymentServiceUrl(
+            DynamicPropertyRegistry registry
+    ) {
+        registry.add(
+                "payment-service.url",
+                wireMockContainer::getBaseUrl
+        );
+    }
+
+    @BeforeEach
+    void setupPaymentStub() {
+
+        WireMock.stubFor(
+                WireMock.post(
+                                WireMock.urlEqualTo("/api/v1/payments")
+                        )
+                        .willReturn(
+                                WireMock.aResponse()
+                                        .withStatus(200)
+                                        .withHeader(
+                                                "Content-Type",
+                                                "application/json"
+                                        )
+                                        .withBody("""
+                                    {
+                                      "providerTransactionId": "123e4567-e89b-12d3-a456-426614174111",
+                                      "status": "SUCCESS"
+                                    }
+                                    """)
+                        )
+        );
     }
 
     @Test
@@ -54,7 +91,7 @@ public class TopUpControllerV1IntegrationTest extends TestContainersConfig {
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
-                .jsonPath("$.status").isEqualTo("SUCCESS")
+                .jsonPath("$.transactionStatus").isEqualTo("SUCCESS")
                 .jsonPath("$.transactionUuid").isNotEmpty();
 
         WireMock.verify(1, WireMock.postRequestedFor(

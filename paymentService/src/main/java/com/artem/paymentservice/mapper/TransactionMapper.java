@@ -22,10 +22,6 @@ public interface TransactionMapper {
             String method
     );
 
-    /**
-     * Конвертация BigDecimal -> Double для внешнего API провайдера.
-     */
-    default Double map(BigDecimal value) {
-        return value == null ? null : value.doubleValue();
-    }
+
+
 }

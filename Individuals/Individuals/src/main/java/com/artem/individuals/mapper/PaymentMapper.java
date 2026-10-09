@@ -11,6 +11,7 @@ import com.artem.paymentservice.dto.PaymentResponse;
 import com.artem.paymentservice.dto.RequiredField;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Component
@@ -26,6 +27,7 @@ public class PaymentMapper {
                 .methodId(dto.getMethodId())
                 .amount(dto.getAmount())
                 .currency(dto.getCurrency())
+                .countryCode(dto.getCountryCode())
                 .userFields(dto.getUserFields());
     }
 
@@ -36,6 +38,11 @@ public class PaymentMapper {
 
         return PaymentResponseDto.builder()
                 .providerTransactionId(response.getProviderTransactionId())
+                .status(
+                        response.getStatus() == null
+                                ? null
+                                : response.getStatus().getValue()
+                )
                 .build();
     }
 
