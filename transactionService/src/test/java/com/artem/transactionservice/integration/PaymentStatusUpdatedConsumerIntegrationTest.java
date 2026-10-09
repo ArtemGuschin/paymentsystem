@@ -18,6 +18,17 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.testcontainers.containers.KafkaContainer;
+
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -45,10 +56,13 @@ class PaymentStatusUpdatedConsumerIntegrationTest {
     private WalletTypeRepository walletTypeRepository;
 
     @Autowired
-    private KafkaTemplate<String, String> kafkaTemplate;
+    private KafkaTemplate<String, Object> kafkaTemplate;
 
     @Autowired
     private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
+
+    @Autowired
+    private KafkaContainer kafkaContainer;
 
     @BeforeEach
     void cleanDatabase() {
@@ -56,6 +70,7 @@ class PaymentStatusUpdatedConsumerIntegrationTest {
         walletRepository.deleteAll();
         walletTypeRepository.deleteAll();
     }
+
     @Test
     void shouldUpdateTransactionStatusFromPendingToSuccess() throws Exception {
 
@@ -93,11 +108,11 @@ class PaymentStatusUpdatedConsumerIntegrationTest {
 
         // 4. Формируем событие SUCCESS от Webhook Collector
         String message = """
-            {
-              "transactionUid": "%s",
-              "status": "SUCCESS"
-            }
-            """.formatted(transactionUid);
+                {
+                  "transactionUid": "%s",
+                  "status": "SUCCESS"
+                }
+                """.formatted(transactionUid);
 
         // 5. Отправляем событие в Kafka
         kafkaTemplate.send(
@@ -175,11 +190,11 @@ class PaymentStatusUpdatedConsumerIntegrationTest {
         UUID transactionUid = transaction.getUid();
 
         String message = """
-            {
-              "transactionUid": "%s",
-              "status": "SUCCESS"
-            }
-            """.formatted(transactionUid);
+                {
+                  "transactionUid": "%s",
+                  "status": "SUCCESS"
+                }
+                """.formatted(transactionUid);
 
         // 5. Consumer остановлен.
         // Событие сначала физически попадает в Kafka.
@@ -217,6 +232,7 @@ class PaymentStatusUpdatedConsumerIntegrationTest {
                             .isNotNull();
                 });
     }
+
     @Test
     void shouldMarkTransactionFailedWithoutChangingBalance() throws Exception {
 
@@ -254,11 +270,11 @@ class PaymentStatusUpdatedConsumerIntegrationTest {
 
         // 4. Формируем FAILED событие
         String message = """
-            {
-              "transactionUid": "%s",
-              "status": "FAILED"
-            }
-            """.formatted(transactionUid);
+                {
+                  "transactionUid": "%s",
+                  "status": "FAILED"
+                }
+                """.formatted(transactionUid);
 
         // 5. Отправляем событие в Kafka
         kafkaTemplate.send(
@@ -329,11 +345,11 @@ class PaymentStatusUpdatedConsumerIntegrationTest {
         UUID transactionUid = transaction.getUid();
 
         String message = """
-            {
-              "transactionUid": "%s",
-              "status": "SUCCESS"
-            }
-            """.formatted(transactionUid);
+                {
+                  "transactionUid": "%s",
+                  "status": "SUCCESS"
+                }
+                """.formatted(transactionUid);
 
         // 4. Первый SUCCESS
         kafkaTemplate.send(
@@ -424,11 +440,11 @@ class PaymentStatusUpdatedConsumerIntegrationTest {
         UUID transactionUid = transaction.getUid();
 
         String message = """
-            {
-              "transactionUid": "%s",
-              "status": "SUCCESS"
-            }
-            """.formatted(transactionUid);
+                {
+                  "transactionUid": "%s",
+                  "status": "SUCCESS"
+                }
+                """.formatted(transactionUid);
 
         // 4. Отправляем SUCCESS первый раз
         kafkaTemplate.send(
@@ -516,11 +532,11 @@ class PaymentStatusUpdatedConsumerIntegrationTest {
 
         // 4. Формируем SUCCESS-событие
         String message = """
-            {
-              "transactionUid": "%s",
-              "status": "SUCCESS"
-            }
-            """.formatted(transactionUid);
+                {
+                  "transactionUid": "%s",
+                  "status": "SUCCESS"
+                }
+                """.formatted(transactionUid);
 
         // 5. Consumer обязан отклонить такое событие
         assertThatThrownBy(() ->
@@ -542,6 +558,94 @@ class PaymentStatusUpdatedConsumerIntegrationTest {
 
         assertThat(unchangedWallet.getBalance())
                 .isEqualByComparingTo("5000.00");
+    }
+
+    @Test
+    void shouldSendFailedPaymentStatusEventToDltAfterRetries() throws Exception {
+
+        Map<String, Object> consumerProperties =
+                new HashMap<>();
+
+        consumerProperties.put(
+                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                kafkaContainer.getBootstrapServers()
+        );
+
+        consumerProperties.put(
+                ConsumerConfig.GROUP_ID_CONFIG,
+                "payment-status-dlt-test-" + UUID.randomUUID()
+        );
+
+        consumerProperties.put(
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+                "earliest"
+        );
+
+        consumerProperties.put(
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                StringDeserializer.class
+        );
+
+        consumerProperties.put(
+                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                StringDeserializer.class
+        );
+
+        try (
+                KafkaConsumer<String, String> consumer =
+                        new KafkaConsumer<>(consumerProperties)
+        ) {
+
+            consumer.subscribe(
+                    List.of("payment.status.updated.DLT")
+            );
+
+            String badMessage =
+                    """
+                    {
+                      "transactionUid": "this-is-not-a-uuid",
+                      "status": "SUCCESS"
+                    }
+                    """;
+
+            kafkaTemplate.send(
+                    "payment.status.updated",
+                    "bad-payment-status-event",
+                    badMessage
+            ).get(10, TimeUnit.SECONDS);
+
+            ConsumerRecord<String, String> dltRecord =
+                    null;
+
+            long deadline =
+                    System.currentTimeMillis() + 15_000;
+
+            while (
+                    dltRecord == null
+                            && System.currentTimeMillis() < deadline
+            ) {
+
+                ConsumerRecords<String, String> records =
+                        consumer.poll(
+                                Duration.ofMillis(500)
+                        );
+
+                for (
+                        ConsumerRecord<String, String> record :
+                        records
+                ) {
+
+                    dltRecord = record;
+                    break;
+                }
+            }
+
+            assertThat(dltRecord)
+                    .isNotNull();
+
+            assertThat(dltRecord.value())
+                    .isEqualTo(badMessage);
+        }
     }
 
 
