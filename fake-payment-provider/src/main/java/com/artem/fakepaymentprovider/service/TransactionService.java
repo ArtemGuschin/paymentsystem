@@ -11,6 +11,10 @@ import com.artem.fakepaymentprovider.repository.TransactionRepository;
 
 import com.artem.fakepaymentprovider.repository.WebhookRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -33,6 +37,12 @@ public class TransactionService {
     private final MerchantRepository merchantRepository;
     private final WebhookRepository webhookRepository;
     private final TransactionMapper mapper;
+
+    @Value("${webhook.security.token}")
+    private String webhookSecurityToken;
+
+    @Value("${webhook.collector-url}")
+    private String webhookCollectorUrl;
 
 
     @Transactional
@@ -77,6 +87,25 @@ public class TransactionService {
                 .filter(tx -> tx.getMerchant().getId().equals(merchant.getId()))
                 .map(mapper::toDto)
                 .orElseThrow(() -> new RuntimeException("Transaction not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public Transaction getByExternalId(String externalId) {
+
+        MerchantEntity merchant = getCurrentMerchant();
+
+        return transactionRepository
+                .findByMerchant_IdAndExternalId(
+                        merchant.getId(),
+                        externalId
+                )
+                .map(mapper::toDto)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Transaction not found"
+                        )
+                );
     }
 
 
@@ -143,9 +172,21 @@ public class TransactionService {
             return;
         }
 
+        /*
+         * Security boundary:
+         * общий секрет Webhook Collector разрешено отправлять
+         * только на заранее доверенный адрес из конфигурации.
+         */
+        if (!webhookCollectorUrl.equals(tx.getNotificationUrl())) {
+            throw new IllegalArgumentException(
+                    "Untrusted webhook notification URL"
+            );
+        }
+
         RestTemplate restTemplate = new RestTemplate();
 
         Map<String, Object> payload = new HashMap<>();
+        payload.put("transactionUid", tx.getExternalId());
         payload.put("status", tx.getStatus());
         payload.put("amount", tx.getAmount());
 
@@ -160,67 +201,43 @@ public class TransactionService {
         webhook = webhookRepository.save(webhook);
 
         try {
-            System.out.println(">>> SENDING WEBHOOK TO: " + tx.getNotificationUrl());
+            System.out.println(
+                    ">>> SENDING WEBHOOK TO TRUSTED COLLECTOR: "
+                            + tx.getNotificationUrl()
+            );
 
             Map<String, Object> body = new HashMap<>();
             body.put("eventType", "TRANSACTION_SUCCESS");
             body.put("entityId", tx.getId());
             body.put("payload", payload);
 
-            restTemplate.postForObject(
-                    tx.getNotificationUrl(),
-                    body,
-                    String.class
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            /*
+             * Секрет добавляется только после проверки,
+             * что destination является trusted Collector.
+             */
+            headers.set(
+                    "X-Webhook-Token",
+                    webhookSecurityToken
             );
 
+            HttpEntity<Map<String, Object>> request =
+                    new HttpEntity<>(body, headers);
+
+            restTemplate.postForEntity(
+                    tx.getNotificationUrl(),
+                    request,
+                    Void.class
+            );
 
         } catch (Exception e) {
             e.printStackTrace();
-
-
         }
 
         webhookRepository.save(webhook);
     }
 
-//    private void sendWebhook(TransactionEntity tx) {
-//
-//        if (tx.getNotificationUrl() == null) {
-//            System.out.println(">>> NO WEBHOOK URL");
-//            return;
-//        }
-//
-//        try {
-//            RestTemplate restTemplate = new RestTemplate();
-//
-//            Map<String, Object> body = new HashMap<>();
-//            body.put("eventType", "TRANSACTION_SUCCESS");
-//            body.put("entityId", tx.getId());
-//
-//            Map<String, Object> payload = new HashMap<>();
-//            payload.put("status", tx.getStatus());
-//            payload.put("amount", tx.getAmount());
-//
-//            body.put("payload", payload);
-//
-//            System.out.println(">>> SENDING WEBHOOK TO: " + tx.getNotificationUrl());
-//
-//            restTemplate.postForObject(
-//                    tx.getNotificationUrl(),
-//                    body,
-//                    String.class
-//            );
-//            WebhookEntity webhook = WebhookEntity.builder()
-//                    .eventType("TRANSACTION_SUCCESS")
-//                    .entityId(tx.getId())
-//                    .payload(payload)
-//                    .notificationUrl(tx.getNotificationUrl())
-//                    .receivedAt(Instant.now())
-//                    .build();
-//
-//            webhookRepository.save(webhook);
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//    }
+
 }

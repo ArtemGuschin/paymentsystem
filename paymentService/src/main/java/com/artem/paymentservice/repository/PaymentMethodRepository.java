@@ -1,6 +1,5 @@
 package com.artem.paymentservice.repository;
 
-
 import com.artem.paymentservice.model.PaymentMethod;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -20,12 +19,13 @@ public interface PaymentMethodRepository
          and pm.active = true
          and d.isActive = true
          and (d.isAllCurrencies = true or d.currencyCode = :currency)
+         and (d.isAllCountries = true or d.countryAlpha3Code = :countryCode)
        """)
     Optional<PaymentMethod> findEligibleById(
             @Param("methodId") Integer methodId,
-            @Param("currency") String currency
+            @Param("currency") String currency,
+            @Param("countryCode") String countryCode
     );
 
     List<PaymentMethod> findByActiveTrue();
-
 }

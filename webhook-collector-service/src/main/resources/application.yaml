@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: webhook-collector-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/webhook_collector_db
+    username: postgres
+    password: postgres
+
+server:
+  port: 7878
+
+webhook:
+  security:
+    token: ${WEBHOOK_SECURITY_TOKEN:fake-provider-secret}

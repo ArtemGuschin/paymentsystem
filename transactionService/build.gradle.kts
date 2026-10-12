@@ -37,8 +37,14 @@ repositories {
 }
 
 
-tasks.bootJar { enabled = false }
-tasks.jar { enabled = true }
+tasks.bootJar {
+    enabled = true
+    archiveFileName.set("transaction-service.jar")
+}
+
+tasks.jar {
+    enabled = true
+}
 
 /* ============================
    OpenAPI

@@ -6,11 +6,17 @@ import com.artem.fakepaymentprovider.client.dto.TransactionRequest;
 import com.artem.paymentservice.dto.PaymentRequest;
 import com.artem.paymentservice.dto.PaymentResponse;
 import com.artem.paymentservice.dto.PaymentStatus;
+import com.artem.paymentservice.exception.PaymentResultUnknownException;
 import com.artem.paymentservice.mapper.TransactionMapper;
 import com.artem.paymentservice.provider.PaymentGateway;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
+
+import java.util.function.Consumer;
 
 @Slf4j
 @Component("FAKE")
@@ -23,10 +29,14 @@ public class FakePaymentGateway implements PaymentGateway {
     private final TransactionsApi transactionsApi;
     private final TransactionMapper transactionMapper;
 
+    @Value("${webhook.collector-url}")
+    private String webhookCollectorUrl;
+
     @Override
     public PaymentResponse processPayment(
             PaymentRequest request,
-            String providerMethodType
+            String providerMethodType,
+            Consumer<String> providerTransactionIdConsumer
     ) {
 
         log.info(
@@ -35,30 +45,101 @@ public class FakePaymentGateway implements PaymentGateway {
                 providerMethodType
         );
 
-        /*
-         * 1. Формируем запрос для Fake Payment Provider.
-         */
         TransactionRequest transactionRequest =
                 transactionMapper.toTransactionRequest(
                         request,
                         providerMethodType
                 );
 
-        /*
-         * 2. Создаём транзакцию у провайдера.
-         */
-        log.info("ApiClient basePath={}", transactionsApi.getApiClient().getBasePath());
+        transactionRequest.setNotificationUrl(
+                webhookCollectorUrl
+        );
+
+        log.info(
+                "ApiClient basePath={}",
+                transactionsApi.getApiClient().getBasePath()
+        );
 
         Transaction providerTransaction;
 
         try {
 
             providerTransaction =
-                    transactionsApi.createTransaction(transactionRequest);
+                    transactionsApi.createTransaction(
+                            transactionRequest
+                    );
+
+        } catch (HttpClientErrorException ex) {
+
+            /*
+             * 409 означает:
+             *
+             * provider уже имеет транзакцию с таким externalId.
+             *
+             * Новую транзакцию не создаём.
+             * Восстанавливаем существующую.
+             */
+            if (ex.getStatusCode().value() == 409) {
+
+                log.info(
+                        "Provider transaction already exists. " +
+                                "Recovering by externalId={}",
+                        request.getInternalTransactionUid()
+                );
+
+                providerTransaction =
+                        recoverTransactionByExternalId(
+                                request,
+                                ex
+                        );
+
+            } else {
+
+                log.error(
+                        "Provider returned HTTP error while creating transaction. " +
+                                "status={}, internalTransactionUid={}",
+                        ex.getStatusCode(),
+                        request.getInternalTransactionUid(),
+                        ex
+                );
+
+                throw ex;
+            }
+
+        } catch (ResourceAccessException createEx) {
+
+            /*
+             * Транспортная ошибка.
+             *
+             * Provider мог получить POST и создать транзакцию,
+             * но HTTP-ответ мог потеряться.
+             *
+             * Поэтому нельзя считать операцию FAILED.
+             * Пытаемся найти её по externalId.
+             */
+            log.warn(
+                    "Create transaction response was lost. " +
+                            "Trying to recover transaction by externalId={}",
+                    request.getInternalTransactionUid(),
+                    createEx
+            );
+
+            providerTransaction =
+                    recoverTransactionByExternalId(
+                            request,
+                            createEx
+                    );
 
         } catch (Exception ex) {
 
-            log.error("Provider call failed", ex);
+            /*
+             * Обычная ошибка вызова provider.
+             */
+            log.error(
+                    "Provider call failed. internalTransactionUid={}",
+                    request.getInternalTransactionUid(),
+                    ex
+            );
 
             throw ex;
         }
@@ -66,8 +147,10 @@ public class FakePaymentGateway implements PaymentGateway {
         if (providerTransaction == null
                 || providerTransaction.getId() == null) {
 
-            throw new IllegalStateException(
-                    "Fake Payment Provider returned transaction without id"
+            throw new PaymentResultUnknownException(
+                    "Fake Payment Provider transaction exists, " +
+                            "but provider transaction id is unavailable",
+                    null
             );
         }
 
@@ -75,29 +158,63 @@ public class FakePaymentGateway implements PaymentGateway {
                 providerTransaction.getId();
 
         log.info(
-                "Transaction accepted by Fake Payment Provider. providerTransactionId={}, initialStatus={}",
+                "Transaction accepted by Fake Payment Provider. " +
+                        "providerTransactionId={}, initialStatus={}",
                 providerTransactionId,
                 providerTransaction.getStatus()
         );
 
         /*
-         * Провайдер уже принял операцию и выдал ID.
+         * КРИТИЧЕСКИЙ ПОРЯДОК:
          *
-         * Поэтому при проблеме с последующим polling
-         * результат не должен становиться FAILED.
+         * 1. Provider уже создал транзакцию.
+         * 2. Получен providerTransactionId.
+         * 3. Сначала сохраняем ID в нашей БД.
+         * 4. Только затем начинаем polling.
+         */
+        try {
+
+            providerTransactionIdConsumer.accept(
+                    providerTransactionId.toString()
+            );
+
+        } catch (Exception saveEx) {
+
+            /*
+             * Provider уже создал операцию,
+             * но мы не смогли зафиксировать его ID локально.
+             *
+             * Это НЕ FAILED.
+             */
+            throw new PaymentResultUnknownException(
+                    "Provider transaction was created, " +
+                            "but providerTransactionId could not be persisted",
+                    saveEx
+            );
+        }
+
+        /*
+         * providerTransactionId уже сохранён.
+         *
+         * Теперь безопасно узнавать финальный статус.
          */
         try {
 
             Transaction actualTransaction =
-                    waitForFinalStatus(providerTransactionId);
+                    waitForFinalStatus(
+                            providerTransactionId
+                    );
 
             PaymentStatus paymentStatus =
                     mapPaymentStatus(
-                            actualTransaction.getStatus().name()
+                            actualTransaction
+                                    .getStatus()
+                                    .name()
                     );
 
             log.info(
-                    "Final provider transaction status received. providerTransactionId={}, status={}",
+                    "Final provider transaction status received. " +
+                            "providerTransactionId={}, status={}",
                     providerTransactionId,
                     actualTransaction.getStatus()
             );
@@ -106,10 +223,18 @@ public class FakePaymentGateway implements PaymentGateway {
                     .providerTransactionId(
                             providerTransactionId.toString()
                     )
-                    .status(paymentStatus);
+                    .status(
+                            paymentStatus
+                    );
 
         } catch (Exception ex) {
 
+            /*
+             * ID уже сохранён.
+             *
+             * Ошибка polling не означает FAILED.
+             * Reconciliation сможет продолжить позже.
+             */
             log.warn(
                     "Could not determine final provider status. " +
                             "Keeping payment PENDING. providerTransactionId={}",
@@ -121,9 +246,73 @@ public class FakePaymentGateway implements PaymentGateway {
                     .providerTransactionId(
                             providerTransactionId.toString()
                     )
-                    .status(PaymentStatus.PENDING);
+                    .status(
+                            PaymentStatus.PENDING
+                    );
         }
     }
+
+    /**
+     * Ищем уже существующую provider-транзакцию
+     * по нашему internalTransactionUid,
+     * который отправляется provider как externalId.
+     */
+    private Transaction recoverTransactionByExternalId(
+            PaymentRequest request,
+            Exception originalException
+    ) {
+
+        String externalId =
+                request.getInternalTransactionUid().toString();
+
+        try {
+
+            Transaction recoveredTransaction =
+                    transactionsApi.getTransactionByExternalId(
+                            externalId
+                    );
+
+            if (recoveredTransaction == null
+                    || recoveredTransaction.getId() == null) {
+
+                throw new IllegalStateException(
+                        "Recovered provider transaction has no id"
+                );
+            }
+
+            log.info(
+                    "Provider transaction recovered by externalId. " +
+                            "externalId={}, providerTransactionId={}, status={}",
+                    externalId,
+                    recoveredTransaction.getId(),
+                    recoveredTransaction.getStatus()
+            );
+
+            return recoveredTransaction;
+
+        } catch (Exception recoveryEx) {
+
+            /*
+             * Provider мог создать транзакцию,
+             * но сейчас мы не можем доказать её состояние.
+             *
+             * Поэтому UNKNOWN, а не FAILED.
+             */
+            log.warn(
+                    "Could not recover provider transaction by externalId={}. " +
+                            "Payment result is unknown.",
+                    externalId,
+                    recoveryEx
+            );
+
+            throw new PaymentResultUnknownException(
+                    "Payment provider may have created the transaction, " +
+                            "but its result could not be recovered",
+                    originalException
+            );
+        }
+    }
+
     @Override
     public PaymentStatus getPaymentStatus(
             String providerTransactionId
@@ -133,7 +322,10 @@ public class FakePaymentGateway implements PaymentGateway {
 
         try {
 
-            providerId = Long.parseLong(providerTransactionId);
+            providerId =
+                    Long.parseLong(
+                            providerTransactionId
+                    );
 
         } catch (NumberFormatException ex) {
 
@@ -145,7 +337,9 @@ public class FakePaymentGateway implements PaymentGateway {
         }
 
         Transaction transaction =
-                transactionsApi.getTransactionById(providerId);
+                transactionsApi.getTransactionById(
+                        providerId
+                );
 
         if (transaction == null
                 || transaction.getStatus() == null) {
@@ -186,10 +380,13 @@ public class FakePaymentGateway implements PaymentGateway {
             }
 
             String status =
-                    transaction.getStatus().name();
+                    transaction
+                            .getStatus()
+                            .name();
 
             log.info(
-                    "Polling provider transaction. providerTransactionId={}, attempt={}, status={}",
+                    "Polling provider transaction. " +
+                            "providerTransactionId={}, attempt={}, status={}",
                     providerTransactionId,
                     attempt,
                     status
@@ -210,13 +407,15 @@ public class FakePaymentGateway implements PaymentGateway {
             }
 
             if (attempt < MAX_STATUS_ATTEMPTS) {
+
                 sleepBeforeNextAttempt();
             }
         }
 
         throw new IllegalStateException(
                 "Payment provider transaction did not reach final status in time. "
-                        + "providerTransactionId=" + providerTransactionId
+                        + "providerTransactionId="
+                        + providerTransactionId
         );
     }
 
@@ -224,7 +423,9 @@ public class FakePaymentGateway implements PaymentGateway {
 
         try {
 
-            Thread.sleep(STATUS_POLL_INTERVAL_MS);
+            Thread.sleep(
+                    STATUS_POLL_INTERVAL_MS
+            );
 
         } catch (InterruptedException ex) {
 

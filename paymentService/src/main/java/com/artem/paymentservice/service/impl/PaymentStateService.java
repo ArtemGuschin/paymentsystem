@@ -55,6 +55,19 @@ public class PaymentStateService {
         paymentRepository.save(payment);
     }
 
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveProviderTransactionId(
+            Payment payment,
+            String providerTransactionId
+    ) {
+
+        payment.setExternalTransactionId(providerTransactionId);
+        payment.setModifiedAt(LocalDateTime.now());
+
+        paymentRepository.save(payment);
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateStatus(
             Payment payment,

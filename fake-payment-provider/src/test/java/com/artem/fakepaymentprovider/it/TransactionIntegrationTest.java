@@ -3,6 +3,7 @@ package com.artem.fakepaymentprovider.it;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -10,23 +11,31 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.*;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.utility.TestcontainersConfiguration;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Import(TestcontainersConfiguration.class)
-class  TransactionIntegrationTest {
+@AutoConfigureMockMvc
+class TransactionIntegrationTest {
 
     @LocalServerPort
     private int port;
 
     @Autowired
     private TestRestTemplate restTemplate;
+
+    @Autowired
+    private MockMvc mockMvc;
 
     private static WireMockServer wireMockServer;
 
@@ -44,10 +53,11 @@ class  TransactionIntegrationTest {
 
     @BeforeEach
     void setupMock() {
-        wireMockServer.resetAll(); // 🔥 важно чтобы тесты не мешали друг другу
+        wireMockServer.resetAll();
 
-        stubFor(post(urlEqualTo("/webhook-test"))
-                .willReturn(aResponse().withStatus(200)));
+        stubFor(com.github.tomakehurst.wiremock.client.WireMock.post(
+                        urlEqualTo("/webhook-test"))
+                .willReturn(aResponse().withStatus(500)));
     }
 
     // ✅ HAPPY PATH
@@ -57,26 +67,40 @@ class  TransactionIntegrationTest {
 
         HttpEntity<String> request = buildRequest("tx-test-1");
 
-        restTemplate.withBasicAuth("merchant_001", "test_secret")
+        restTemplate.withBasicAuth("payment-service", "payment-service-secret")
                 .postForEntity(getUrl(), request, String.class);
 
         await().atMost(5, SECONDS)
                 .untilAsserted(() ->
-                        verify(postRequestedFor(urlEqualTo("/webhook-test")))
+                        verify(
+                                postRequestedFor(urlEqualTo("/webhook-test"))
+                                        .withHeader(
+                                                "X-Webhook-Token",
+                                                equalTo("test-webhook-secret")
+                                        )
+                        )
                 );
     }
 
     // ❌ 401
     @Test
-    void should_return_401_when_invalid_credentials() {
+    void should_return_401_when_invalid_credentials() throws Exception {
 
-        HttpEntity<String> request = buildRequest("tx-test-2");
-
-        ResponseEntity<String> response = restTemplate
-                .withBasicAuth("wrong", "wrong")
-                .postForEntity(getUrl(), request, String.class);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        mockMvc.perform(
+                        post("/api/v1/transactions")
+                                .with(httpBasic("wrong", "wrong"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {
+                                      "amount": 100,
+                                      "currency": "USD",
+                                      "method": "CARD",
+                                      "externalId": "tx-test-2",
+                                      "notificationUrl": "http://localhost:9999/webhook-test"
+                                    }
+                                    """)
+                )
+                .andExpect(status().isUnauthorized());
     }
 
     // ❌ 400 validation
@@ -93,13 +117,15 @@ class  TransactionIntegrationTest {
                 }
                 """;
 
-        HttpEntity<String> request = new HttpEntity<>(body, headers);
+        HttpEntity<String> request =
+                new HttpEntity<>(body, headers);
 
         ResponseEntity<String> response = restTemplate
-                .withBasicAuth("merchant_001", "test_secret")
+                .withBasicAuth("payment-service", "payment-service-secret")
                 .postForEntity(getUrl(), request, String.class);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     // ❌ duplicate externalId
@@ -107,16 +133,18 @@ class  TransactionIntegrationTest {
     @Sql("/merchant.sql")
     void should_not_create_duplicate_transaction() {
 
-        HttpEntity<String> request = buildRequest("tx-duplicate");
+        HttpEntity<String> request =
+                buildRequest("tx-duplicate");
 
-        restTemplate.withBasicAuth("merchant_001", "test_secret")
+        restTemplate.withBasicAuth("payment-service", "payment-service-secret")
                 .postForEntity(getUrl(), request, String.class);
 
         ResponseEntity<String> response = restTemplate
-                .withBasicAuth("merchant_001", "test_secret")
+                .withBasicAuth("payment-service", "payment-service-secret")
                 .postForEntity(getUrl(), request, String.class);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.CONFLICT);
     }
 
     // ❌ webhook failure
@@ -124,26 +152,71 @@ class  TransactionIntegrationTest {
     @Sql("/merchant.sql")
     void should_call_webhook_even_if_it_fails() {
 
-        // webhook падает
-        stubFor(post(urlEqualTo("/webhook-test"))
+        stubFor(com.github.tomakehurst.wiremock.client.WireMock.post(
+                        urlEqualTo("/webhook-test"))
                 .willReturn(aResponse().withStatus(500)));
 
-        HttpEntity<String> request = buildRequest("tx-fail");
+        HttpEntity<String> request =
+                buildRequest("tx-fail");
 
-        restTemplate.withBasicAuth("merchant_001", "test_secret")
+        restTemplate.withBasicAuth("payment-service", "payment-service-secret")
                 .postForEntity(getUrl(), request, String.class);
 
         await().atMost(5, SECONDS)
                 .untilAsserted(() ->
-                        verify(postRequestedFor(urlEqualTo("/webhook-test")))
+                        verify(
+                                postRequestedFor(
+                                        urlEqualTo("/webhook-test")
+                                )
+                        )
                 );
     }
+    @Test
+    @Sql("/merchant.sql")
+    void should_not_send_webhook_to_untrusted_notification_url() {
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        String body = """
+            {
+              "amount": 100,
+              "currency": "USD",
+              "method": "CARD",
+              "externalId": "tx-untrusted-url",
+              "notificationUrl": "http://localhost:9999/evil-webhook"
+            }
+            """;
+
+        HttpEntity<String> request =
+                new HttpEntity<>(body, headers);
+
+        restTemplate
+                .withBasicAuth(
+                        "payment-service",
+                        "payment-service-secret"
+                )
+                .postForEntity(
+                        getUrl(),
+                        request,
+                        String.class
+                );
+        verify(
+                0,
+                postRequestedFor(
+                        urlEqualTo("/evil-webhook")
+                )
+        );
+    }
+
+
 
     // =========================
     // 🔧 helpers
     // =========================
 
     private HttpEntity<String> buildRequest(String externalId) {
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
@@ -161,6 +234,8 @@ class  TransactionIntegrationTest {
     }
 
     private String getUrl() {
-        return "http://localhost:" + port + "/api/v1/transactions";
+        return "http://localhost:"
+                + port
+                + "/api/v1/transactions";
     }
 }

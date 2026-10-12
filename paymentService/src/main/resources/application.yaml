@@ -34,18 +34,22 @@ fake-payment-provider:
   username: ${FAKE_PAYMENT_PROVIDER_USERNAME:payment-service}
   password: ${FAKE_PAYMENT_PROVIDER_PASSWORD:payment-service-secret}
 
+webhook:
+  collector-url: ${WEBHOOK_COLLECTOR_URL:http://localhost:7878/api/v1/webhooks/payment-provider}
+
 management:
   endpoints:
     web:
       exposure:
         include: health,prometheus
+
   endpoint:
     health:
       show-details: always
+
   metrics:
     tags:
       application: ${spring.application.name}
-
 
 logging:
   level:

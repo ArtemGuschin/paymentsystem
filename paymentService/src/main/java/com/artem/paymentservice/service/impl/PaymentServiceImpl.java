@@ -3,8 +3,10 @@ package com.artem.paymentservice.service.impl;
 import com.artem.paymentservice.dto.PaymentRequest;
 import com.artem.paymentservice.dto.PaymentResponse;
 import com.artem.paymentservice.dto.PaymentStatus;
+import com.artem.paymentservice.exception.PaymentIdempotencyConflictException;
 import com.artem.paymentservice.exception.PaymentMethodNotFoundException;
 import com.artem.paymentservice.exception.PaymentProviderUnavailableException;
+import com.artem.paymentservice.exception.PaymentResultUnknownException;
 import com.artem.paymentservice.model.Payment;
 import com.artem.paymentservice.model.PaymentMethod;
 import com.artem.paymentservice.provider.PaymentGateway;
@@ -16,8 +18,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-
-import java.math.BigDecimal;
 
 @Slf4j
 @Service
@@ -42,25 +42,66 @@ public class PaymentServiceImpl implements PaymentService {
 
         /*
          * 1. Idempotency key
-         *
-         * internalTransactionUid из Individuals является
-         * уникальным идентификатором одной бизнес-операции.
          */
         String internalTransactionId =
                 request.getInternalTransactionUid().toString();
 
         /*
-         * 2. Сначала проверяем, не был ли этот платёж
-         * уже создан ранее.
-         *
-         * Это защищает обычный повторный HTTP-запрос.
+         * 2. Проверяем существующий Payment.
          */
         Payment existingPayment =
                 paymentRepository
-                        .findByInternalTransactionId(internalTransactionId)
+                        .findByInternalTransactionId(
+                                internalTransactionId
+                        )
                         .orElse(null);
 
+        /*
+         * Один и тот же idempotency key разрешён
+         * только для ТОГО ЖЕ бизнес-запроса.
+         *
+         * Если amount / currency / methodId изменились,
+         * это уже конфликт, а не idempotent retry.
+         */
         if (existingPayment != null) {
+
+            validateIdempotentRequest(
+                    existingPayment,
+                    request
+            );
+        }
+
+        /*
+         * Особый recovery-сценарий:
+         *
+         * Payment уже существует локально,
+         * имеет PENDING,
+         * но providerTransactionId неизвестен.
+         *
+         * Это может означать, что provider получил create,
+         * создал транзакцию, но HTTP-ответ потерялся.
+         */
+        boolean recoverExistingPayment =
+                existingPayment != null
+                        && PaymentStatus.PENDING.name()
+                        .equals(existingPayment.getStatus())
+                        && (
+                        existingPayment.getExternalTransactionId() == null
+                                || existingPayment
+                                .getExternalTransactionId()
+                                .isBlank()
+                );
+
+        /*
+         * Обычный идемпотентный повтор.
+         *
+         * Параметры мы уже проверили выше.
+         *
+         * Если это НЕ специальный recovery-сценарий,
+         * просто возвращаем уже сохранённый результат.
+         */
+        if (existingPayment != null
+                && !recoverExistingPayment) {
 
             log.info(
                     "Idempotent payment request. Returning existing payment. " +
@@ -73,18 +114,31 @@ public class PaymentServiceImpl implements PaymentService {
 
             return new PaymentResponse(
                     existingPayment.getExternalTransactionId(),
-                    PaymentStatus.valueOf(existingPayment.getStatus())
+                    PaymentStatus.valueOf(
+                            existingPayment.getStatus()
+                    )
+            );
+        }
+
+        if (recoverExistingPayment) {
+
+            log.warn(
+                    "Found PENDING payment without providerTransactionId. " +
+                            "Retrying provider recovery. paymentId={}, internalTransactionId={}",
+                    existingPayment.getId(),
+                    existingPayment.getInternalTransactionId()
             );
         }
 
         /*
-         * 3. Находим способ оплаты
+         * 3. Находим способ оплаты.
          */
         PaymentMethod paymentMethod =
                 paymentMethodRepository
                         .findEligibleById(
                                 request.getMethodId().intValue(),
-                                request.getCurrency()
+                                request.getCurrency(),
+                                request.getCountryCode()
                         )
                         .orElseThrow(() ->
                                 new PaymentMethodNotFoundException(
@@ -100,78 +154,93 @@ public class PaymentServiceImpl implements PaymentService {
         );
 
         /*
-         * 4. Создаём Payment со статусом PENDING.
-         *
-         * Важно:
-         * createPendingPayment() работает в отдельной транзакции
-         * REQUIRES_NEW.
-         *
-         * Поэтому PENDING будет зафиксирован в БД
-         * ещё до вызова внешнего провайдера.
-         *
-         * На уровне БД internal_transaction_id должен иметь
-         * UNIQUE NOT NULL constraint.
-         *
-         * Это защищает от race condition:
-         *
-         * request A -> INSERT
-         * request B -> INSERT -> UNIQUE violation
+         * 4. Либо используем существующий PENDING Payment
+         * для recovery, либо создаём новый.
          */
         Payment payment;
 
-        try {
+        if (recoverExistingPayment) {
 
-            payment =
-                    paymentStateService.createPendingPayment(
-                            paymentMethod,
-                            internalTransactionId,
-                            request.getAmount(),
-                            request.getCurrency()
-                    );
-
-        } catch (DataIntegrityViolationException ex) {
-
-            /*
-             * Конкурентный запрос уже успел создать Payment
-             * с тем же internalTransactionId.
-             *
-             * Поэтому считаем это идемпотентным повтором.
-             */
-            log.info(
-                    "Concurrent idempotent request detected. " +
-                            "Loading existing payment. internalTransactionId={}",
-                    internalTransactionId
-            );
-
-            Payment concurrentPayment =
-                    paymentRepository
-                            .findByInternalTransactionId(internalTransactionId)
-                            .orElseThrow(() -> ex);
+            payment = existingPayment;
 
             log.info(
-                    "Returning existing payment after concurrent insert. " +
-                            "paymentId={}, internalTransactionId={}, status={}, providerTransactionId={}",
-                    concurrentPayment.getId(),
-                    concurrentPayment.getInternalTransactionId(),
-                    concurrentPayment.getStatus(),
-                    concurrentPayment.getExternalTransactionId()
+                    "Reusing existing PENDING payment for provider recovery. " +
+                            "paymentId={}, internalTransactionId={}",
+                    payment.getId(),
+                    payment.getInternalTransactionId()
             );
 
-            return new PaymentResponse(
-                    concurrentPayment.getExternalTransactionId(),
-                    PaymentStatus.valueOf(concurrentPayment.getStatus())
-            );
+        } else {
+
+            try {
+
+                payment =
+                        paymentStateService.createPendingPayment(
+                                paymentMethod,
+                                internalTransactionId,
+                                request.getAmount(),
+                                request.getCurrency()
+                        );
+
+            } catch (DataIntegrityViolationException ex) {
+
+                /*
+                 * Конкурентный запрос уже успел создать Payment.
+                 *
+                 * Загружаем его и ОБЯЗАТЕЛЬНО сравниваем
+                 * исходные параметры запроса.
+                 */
+                log.info(
+                        "Concurrent idempotent request detected. " +
+                                "Loading existing payment. internalTransactionId={}",
+                        internalTransactionId
+                );
+
+                Payment concurrentPayment =
+                        paymentRepository
+                                .findByInternalTransactionId(
+                                        internalTransactionId
+                                )
+                                .orElseThrow(() -> ex);
+
+                /*
+                 * Даже при race condition одинаковый UUID
+                 * с другими параметрами должен дать 409.
+                 */
+                validateIdempotentRequest(
+                        concurrentPayment,
+                        request
+                );
+
+                log.info(
+                        "Returning existing payment after concurrent insert. " +
+                                "paymentId={}, internalTransactionId={}, status={}, providerTransactionId={}",
+                        concurrentPayment.getId(),
+                        concurrentPayment.getInternalTransactionId(),
+                        concurrentPayment.getStatus(),
+                        concurrentPayment.getExternalTransactionId()
+                );
+
+                return new PaymentResponse(
+                        concurrentPayment.getExternalTransactionId(),
+                        PaymentStatus.valueOf(
+                                concurrentPayment.getStatus()
+                        )
+                );
+            }
         }
 
         log.info(
-                "Payment created. paymentId={}, internalTransactionId={}, status={}",
+                "Payment ready for provider processing. " +
+                        "paymentId={}, internalTransactionId={}, status={}, providerTransactionId={}",
                 payment.getId(),
                 payment.getInternalTransactionId(),
-                payment.getStatus()
+                payment.getStatus(),
+                payment.getExternalTransactionId()
         );
 
         /*
-         * 5. Получаем нужный PaymentGateway
+         * 5. Получаем нужный PaymentGateway.
          */
         PaymentGateway paymentGateway;
 
@@ -179,7 +248,9 @@ public class PaymentServiceImpl implements PaymentService {
 
             paymentGateway =
                     paymentProviderFactory.getProvider(
-                            paymentMethod.getProvider().getName()
+                            paymentMethod
+                                    .getProvider()
+                                    .getName()
                     );
 
         } catch (Exception ex) {
@@ -192,15 +263,24 @@ public class PaymentServiceImpl implements PaymentService {
             );
 
             /*
-             * Компенсация выполняется в отдельной транзакции.
+             * Для нового платежа это локальная ошибка до обращения
+             * к provider, поэтому можно завершить FAILED.
+             *
+             * Для recovery ранее provider уже мог принять операцию,
+             * поэтому её состояние оставляем PENDING.
              */
-            paymentStateService.markFailed(payment);
+            if (!recoverExistingPayment) {
+
+                paymentStateService.markFailed(
+                        payment
+                );
+            }
 
             throw ex;
         }
 
         /*
-         * 6. Вызываем внешний Payment Provider
+         * 6. Вызываем внешний Payment Provider.
          */
         PaymentResponse providerResponse;
 
@@ -209,8 +289,32 @@ public class PaymentServiceImpl implements PaymentService {
             providerResponse =
                     paymentGateway.processPayment(
                             request,
-                            paymentMethod.getProviderMethodType()
+                            paymentMethod.getProviderMethodType(),
+                            providerTransactionId ->
+                                    paymentStateService
+                                            .saveProviderTransactionId(
+                                                    payment,
+                                                    providerTransactionId
+                                            )
                     );
+
+        } catch (PaymentResultUnknownException ex) {
+
+            /*
+             * Provider мог уже создать операцию,
+             * но её результат сейчас неизвестен.
+             *
+             * FAILED ставить нельзя.
+             */
+            log.warn(
+                    "Payment result is unknown. Keeping payment PENDING. " +
+                            "paymentId={}, internalTransactionId={}",
+                    payment.getId(),
+                    payment.getInternalTransactionId(),
+                    ex
+            );
+
+            throw ex;
 
         } catch (Exception ex) {
 
@@ -222,17 +326,25 @@ public class PaymentServiceImpl implements PaymentService {
             );
 
             /*
-             * Компенсируем ранее созданный PENDING-платёж:
+             * Обычная ошибка provider.
              *
-             * PENDING -> FAILED
+             * Если это recovery уже неизвестной операции,
+             * не переводим её в FAILED.
              */
-            paymentStateService.markFailed(payment);
+            if (!recoverExistingPayment) {
 
-            throw new PaymentProviderUnavailableException(ex);
+                paymentStateService.markFailed(
+                        payment
+                );
+            }
+
+            throw new PaymentProviderUnavailableException(
+                    ex
+            );
         }
 
         /*
-         * 7. Проверяем ответ провайдера
+         * 7. Проверяем ответ провайдера.
          */
         if (providerResponse == null) {
 
@@ -241,7 +353,12 @@ public class PaymentServiceImpl implements PaymentService {
                     payment.getId()
             );
 
-            paymentStateService.markFailed(payment);
+            if (!recoverExistingPayment) {
+
+                paymentStateService.markFailed(
+                        payment
+                );
+            }
 
             throw new IllegalStateException(
                     "Payment provider returned null response"
@@ -249,14 +366,21 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         if (providerResponse.getProviderTransactionId() == null
-                || providerResponse.getProviderTransactionId().isBlank()) {
+                || providerResponse
+                .getProviderTransactionId()
+                .isBlank()) {
 
             log.error(
                     "Payment provider returned empty transaction id. paymentId={}",
                     payment.getId()
             );
 
-            paymentStateService.markFailed(payment);
+            if (!recoverExistingPayment) {
+
+                paymentStateService.markFailed(
+                        payment
+                );
+            }
 
             throw new IllegalStateException(
                     "Payment provider returned empty transaction id"
@@ -270,7 +394,12 @@ public class PaymentServiceImpl implements PaymentService {
                     payment.getId()
             );
 
-            paymentStateService.markFailed(payment);
+            if (!recoverExistingPayment) {
+
+                paymentStateService.markFailed(
+                        payment
+                );
+            }
 
             throw new IllegalStateException(
                     "Payment provider returned null status"
@@ -285,7 +414,7 @@ public class PaymentServiceImpl implements PaymentService {
         );
 
         /*
-         * 8. Обновляем состояние Payment
+         * 8. Обновляем состояние Payment.
          */
         PaymentStatus providerStatus =
                 providerResponse.getStatus();
@@ -339,7 +468,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         /*
-         * 9. Возвращаем ответ вызывающему сервису
+         * 9. Возвращаем ответ.
          */
         log.info(
                 "Payment processing finished. paymentId={}, providerTransactionId={}, status={}",
@@ -349,5 +478,79 @@ public class PaymentServiceImpl implements PaymentService {
         );
 
         return providerResponse;
+    }
+
+    /*
+     * Проверяем семантику idempotency key.
+     *
+     * Один internalTransactionUid может повторно использоваться
+     * только с теми же:
+     *
+     * - amount
+     * - currency
+     * - methodId
+     *
+     * Иначе это уже другая бизнес-операция
+     * под тем же idempotency key.
+     */
+    private void validateIdempotentRequest(
+            Payment existingPayment,
+            PaymentRequest request
+    ) {
+
+        /*
+         * BigDecimal нельзя сравнивать через equals(),
+         * потому что:
+         *
+         * 100.5 != 100.50 через equals()
+         *
+         * Но денежное значение у них одинаковое.
+         */
+        boolean sameAmount =
+                existingPayment
+                        .getAmount()
+                        .compareTo(
+                                request.getAmount()
+                        ) == 0;
+
+        boolean sameCurrency =
+                existingPayment
+                        .getCurrency()
+                        .equals(
+                                request.getCurrency()
+                        );
+
+        boolean sameMethod =
+                existingPayment
+                        .getPaymentMethod()
+                        .getId()
+                        .longValue()
+                        == request
+                        .getMethodId()
+                        .longValue();
+
+        if (!sameAmount
+                || !sameCurrency
+                || !sameMethod) {
+
+            log.warn(
+                    "Idempotency conflict detected. " +
+                            "internalTransactionId={}, " +
+                            "existingMethodId={}, requestMethodId={}, " +
+                            "existingAmount={}, requestAmount={}, " +
+                            "existingCurrency={}, requestCurrency={}",
+                    existingPayment.getInternalTransactionId(),
+                    existingPayment.getPaymentMethod().getId(),
+                    request.getMethodId(),
+                    existingPayment.getAmount(),
+                    request.getAmount(),
+                    existingPayment.getCurrency(),
+                    request.getCurrency()
+            );
+
+            throw new PaymentIdempotencyConflictException(
+                    existingPayment.getInternalTransactionId()
+            );
+        }
     }
 }

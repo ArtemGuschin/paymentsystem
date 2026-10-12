@@ -72,7 +72,7 @@ class WalletShardingTest extends BaseIntegrationTest {
         request.setWalletTypeUid(type.getUid()); // ← ВАЖНО
 
         // ===== 3. ВЫЗОВ КОНТРОЛЛЕРА =====
-        var mvcResult = mockMvc.perform(post("/api/v1/wallets/create")
+        var mvcResult = mockMvc.perform(post("/api/v1/wallets")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())

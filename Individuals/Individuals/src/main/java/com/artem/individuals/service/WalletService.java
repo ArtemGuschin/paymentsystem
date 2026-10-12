@@ -58,7 +58,7 @@ public class WalletService {
         return WalletResponseDto.builder()
                 .walletUid(response.getUid())
                 .name(response.getName())
-                .userUid(response.getUserUid())
+                .userUid(UUID.fromString(response.getUserUid()))
                 .walletTypeUid(
                         response.getWalletType() != null
                                 ? response.getWalletType().getUid()

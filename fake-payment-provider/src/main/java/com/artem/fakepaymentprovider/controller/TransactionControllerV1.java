@@ -42,6 +42,17 @@ public class TransactionControllerV1 implements TransactionsApi {
     }
 
     @Override
+    public ResponseEntity<Transaction> getTransactionByExternalId(
+            String externalId
+    ) {
+
+        Transaction response =
+                service.getByExternalId(externalId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
     public ResponseEntity<List<Transaction>> getTransactions(
             OffsetDateTime startDate,
             OffsetDateTime endDate

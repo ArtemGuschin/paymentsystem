@@ -1,0 +1,28 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+LAYOUT_TOP_DOWN()
+
+Container_Boundary(webhookCollector, "Webhook Collector Service") {
+    Component(webhookController, "WebhookController", "REST Controller", "Принимает webhook и формирует HTTP-ответ")
+    Component(securityService, "SecurityService", "Service", "Проверяет токен безопасности")
+    Component(webhookService, "WebhookService", "Service Layer", "Оркестрирует обработку webhook в одной транзакции")
+    Component(webhookRepository, "WebhookRepository", "Spring Data JPA", "Сохраняет webhook-уведомления")
+    Component(outboxRepository, "OutboxRepository", "Spring Data JPA", "Сохраняет outbox-события")
+    Component(outboxPublisher, "OutboxPublisher", "Service", "Читает и публикует необработанные outbox-события")
+    Component(kafkaProducer, "KafkaProducer", "KafkaTemplate", "Публикует payment.status.updated в Kafka")
+}
+
+ContainerDb(database, "PostgreSQL DB", "PostgreSQL", "Хранение webhook-уведомлений и outbox-событий")
+Container(kafka, "Kafka", "Apache Kafka", "События payment.status.updated")
+
+Rel(webhookController, securityService, "Проверяет токен")
+Rel(webhookController, webhookService, "Передает webhook на обработку")
+Rel(webhookService, webhookRepository, "Сохраняет webhook-уведомление")
+Rel(webhookService, outboxRepository, "Сохраняет outbox-событие в той же транзакции")
+Rel(webhookRepository, database, "Записывает webhook", "JPA/JDBC")
+Rel(outboxRepository, database, "Записывает и читает outbox-события", "JPA/JDBC")
+Rel(outboxPublisher, outboxRepository, "Получает необработанные outbox-события")
+Rel(outboxPublisher, kafkaProducer, "Передает событие для публикации")
+Rel(kafkaProducer, kafka, "Публикует payment.status.updated", "Kafka")
+
+@enduml

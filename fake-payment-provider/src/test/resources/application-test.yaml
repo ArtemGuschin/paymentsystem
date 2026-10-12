@@ -10,3 +10,8 @@ spring:
 
   flyway:
     enabled: true
+
+webhook:
+    collector-url: http://localhost:9999/webhook-test
+    security:
+      token: test-webhook-secret

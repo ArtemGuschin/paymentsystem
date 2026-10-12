@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    driver-class-name: org.apache.shardingsphere.driver.ShardingSphereDriver
+    url: jdbc:shardingsphere:classpath:sharding-docker.yaml
+
+  flyway:
+    enabled: false
+
+  kafka:
+    bootstrap-servers: kafka:29092
+    consumer:
+      auto-offset-reset: earliest
