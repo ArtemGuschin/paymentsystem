@@ -204,6 +204,39 @@ services:
       timeout: 5s
       retries: 12
 
+  # =========================================================
+  # SCHEMA REGISTRY
+  # =========================================================
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.0
+    container_name: individuals-schema-registry
+
+    ports:
+      - "8086:8081"
+
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:29092
+
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+
+  # =========================================================
+  # MAILHOG
+  # =========================================================
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: individuals-mailhog
+
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 
   # =========================================================
   # KAFKA UI
