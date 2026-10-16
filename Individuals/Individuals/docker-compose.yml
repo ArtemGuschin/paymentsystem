@@ -239,6 +239,64 @@ services:
 
 
   # =========================================================
+  # NOTIFICATION SERVICE DATABASE
+  # =========================================================
+
+  notification-db:
+    image: postgres:15
+    container_name: individuals-notification-db
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5439:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U postgres -d notification_db"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # =========================================================
+  # NOTIFICATION SERVICE
+  # =========================================================
+
+  notification-service:
+    build:
+      context: ../../notification-service
+
+    container_name: individuals-notification-service
+
+    ports:
+      - "8787:8787"
+
+    environment:
+      DB_URL: jdbc:postgresql://notification-db:5432/notification_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+      MAIL_HOST: mailhog
+      MAIL_PORT: 1025
+      MAIL_FROM: no-reply@payment-system.local
+
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_started
+      mailhog:
+        condition: service_started
+
+  # =========================================================
   # KAFKA UI
   # =========================================================
 
