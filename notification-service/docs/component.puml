@@ -1,0 +1,35 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_LEFT_RIGHT()
+
+Person(user, "Пользователь", "Получает уведомления и изменяет их статус")
+
+Container_Ext(kafka, "Kafka", "Apache Kafka", "Топик notification.created")
+Container_Ext(schemaRegistry, "Schema Registry", "Confluent Schema Registry", "Avro-схемы Kafka-сообщений")
+ContainerDb_Ext(notificationDb, "Notification DB", "PostgreSQL", "Хранение уведомлений")
+System_Ext(smtp, "SMTP Server", "Доставка email пользователям")
+
+Container_Boundary(notificationService, "Notification Service") {
+    Component(notificationController, "NotificationController", "Spring MVC REST Controller", "GET уведомлений пользователя и PATCH статуса уведомления")
+    Component(kafkaConsumer, "NotificationCreatedConsumer", "Spring Kafka Listener", "Получает notification.created из Kafka")
+    Component(notificationServiceComponent, "NotificationService", "Service Layer", "Бизнес-логика обработки, получения и изменения уведомлений")
+    Component(notificationRepository, "NotificationRepository", "Spring Data JPA", "Чтение и сохранение уведомлений")
+    Component(emailService, "EmailService", "Spring Mail", "Отправка email при регистрации пользователя")
+}
+
+Rel(user, notificationController, "GET /api/v1/notifications/{userUid}\nPATCH /api/v1/notifications/{id}/status", "HTTP / JSON")
+
+Rel(kafka, kafkaConsumer, "Передает notification.created", "Avro / Kafka")
+Rel(kafkaConsumer, schemaRegistry, "Использует NotificationCreated schema", "HTTP")
+Rel(kafkaConsumer, notificationServiceComponent, "Передает событие на обработку")
+
+Rel(notificationController, notificationServiceComponent, "Получение уведомлений / изменение статуса")
+
+Rel(notificationServiceComponent, notificationRepository, "CRUD уведомлений")
+Rel(notificationRepository, notificationDb, "Чтение / запись", "JPA / JDBC")
+
+Rel(notificationServiceComponent, emailService, "Отправляет welcome email для USER_REGISTERED")
+Rel(emailService, smtp, "Отправляет email", "SMTP")
+
+@enduml

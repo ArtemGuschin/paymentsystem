@@ -19,6 +19,9 @@ repositories {
     maven { url "https://repo.spring.io/milestone" }
     maven { url 'https://jitpack.io' }
     maven {
+        url "https://packages.confluent.io/maven/"
+    }
+    maven {
         def releasesRepoUrl = "http://localhost:8081/repository/maven-releases/"
         def snapshotsRepoUrl = "http://localhost:8081/repository/maven-snapshots/"
         url = "http://localhost:8081/repository/maven-public/"
@@ -44,6 +47,10 @@ dependencies {
     implementation 'org.keycloak:keycloak-admin-client:24.0.2'
     implementation 'org.springframework:spring-tx'
     implementation 'com.artem:person-service-openapi:1.0.8'
+
+    implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'io.confluent:kafka-avro-serializer:7.9.0'
+    implementation 'com.artem:common-library:1.0.0-20261013.134120-1'
 
 
     implementation 'com.artem:payment-service-client:0.0.1-20261008.122700-5'

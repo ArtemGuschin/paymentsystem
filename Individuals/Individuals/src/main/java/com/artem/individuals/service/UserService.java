@@ -1,11 +1,11 @@
 package com.artem.individuals.service;
 
-
 import com.artem.api.UsersApi;
 import com.artem.individuals.client.KeycloakIntegrationClient;
 import com.artem.individuals.dto.request.RegistrationRequest;
 import com.artem.individuals.dto.response.TokenResponse;
 import com.artem.individuals.dto.response.UserResponse;
+import com.artem.individuals.kafka.NotificationEventProducer;
 import com.artem.model.UserCreateRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,11 +17,10 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class UserService {
 
-
     private final KeycloakIntegrationClient keycloakClient;
     private final TokenService tokenService;
     private final UsersApi usersApi;
-
+    private final NotificationEventProducer notificationEventProducer;
 
     public Mono<TokenResponse> registerUser(RegistrationRequest request) {
         return validateRegistrationRequest(request)
@@ -34,28 +33,67 @@ public class UserService {
                     userCreateRequest.setAddress(request.getAddress());
                     userCreateRequest.setIndividual(request.getIndividual());
 
-                    // 1. Сначала создаем в Person Service
+                    // 1. Создаем пользователя в Person Service
                     return Mono.fromCallable(() -> usersApi.createUser(userCreateRequest))
                             .flatMap(userResponse ->
-                                    // 2. Потом создаем в Keycloak
-                                    keycloakClient.createUserInKeycloak(request.getEmail(),
+
+                                    // 2. Создаем пользователя в Keycloak
+                                    keycloakClient.createUserInKeycloak(
+                                                    request.getEmail(),
                                                     request.getPassword(),
                                                     request.getFirstName(),
                                                     request.getLastName(),
-                                                    request.getRole())
-                                            .flatMap(keycloakUserId ->
-                                                    // 3. Если оба успешны - возвращаем токен
-                                                    tokenService.getAccessToken(request.getEmail(), request.getPassword())
+                                                    request.getRole()
                                             )
+
+                                            // createUserInKeycloak возвращает Mono<Void>,
+                                            // поэтому здесь нужен then(), а не flatMap()
+                                            .then(
+                                                    tokenService.getAccessToken(
+                                                            request.getEmail(),
+                                                            request.getPassword()
+                                                    )
+                                            )
+
+                                            // 3. После успешного получения token
+                                            // публикуем notification.created
+                                            .flatMap(tokenResponse ->
+                                                    notificationEventProducer
+                                                            .sendUserRegisteredNotification(
+                                                                    userResponse.getId(),
+                                                                    request.getEmail()
+                                                            )
+                                                            .onErrorResume(error -> {
+                                                                log.error(
+                                                                        "Registration completed, but notification event publishing failed for userUid={}",
+                                                                        userResponse.getId(),
+                                                                        error
+                                                                );
+
+                                                                return Mono.empty();
+                                                            })
+                                                            .thenReturn(tokenResponse)
+                                            )
+
+                                            // 4. Если Keycloak или получение token упали,
+                                            // компенсируем Person Service
                                             .onErrorResume(throwable -> {
-                                                log.error("Keycloak error during registration, compensating...", throwable);
-                                                // КОМПЕНСАЦИЯ: если Keycloak упал - удаляем из Person Service
+                                                log.error(
+                                                        "Registration flow failed, compensating Person Service",
+                                                        throwable
+                                                );
+
                                                 return Mono.fromCallable(() -> {
-                                                            log.info("Deleting user {} from Person Service as compensation", userResponse.getId());
-                                                            usersApi.deleteUser(userResponse.getId()); // удаляем пользователя
+                                                            log.info(
+                                                                    "Deleting user {} from Person Service as compensation",
+                                                                    userResponse.getId()
+                                                            );
+
+                                                            usersApi.deleteUser(userResponse.getId());
+
                                                             return userResponse;
                                                         })
-                                                        .then(Mono.error(throwable)); // пробрасываем оригинальную ошибку
+                                                        .then(Mono.error(throwable));
                                             })
                             );
                 });
@@ -63,8 +101,13 @@ public class UserService {
 
     private Mono<RegistrationRequest> validateRegistrationRequest(RegistrationRequest request) {
         if (!request.getPassword().equals(request.getConfirmPassword())) {
-            return Mono.error(new IllegalArgumentException("Error: Password and confirm password do not match!!!"));
+            return Mono.error(
+                    new IllegalArgumentException(
+                            "Error: Password and confirm password do not match!!!"
+                    )
+            );
         }
+
         return Mono.just(request);
     }
 

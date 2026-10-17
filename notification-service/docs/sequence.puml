@@ -1,0 +1,78 @@
+@startuml
+
+actor User
+participant "Individuals API" as Individuals
+participant "Person Service" as PersonService
+participant Keycloak
+participant "Webhook Collector Service" as WebhookCollector
+participant Kafka
+participant "Notification Service\nKafka Consumer" as NotificationConsumer
+participant "Notification Service" as NotificationService
+database "Notification DB\nPostgreSQL" as NotificationDb
+participant "Email Service" as EmailService
+participant "SMTP Server" as SMTP
+
+== Регистрация пользователя ==
+
+User -> Individuals: POST /registration
+
+Individuals -> PersonService: Создать пользователя
+PersonService --> Individuals: userUid
+
+Individuals -> Keycloak: Создать пользователя
+
+alt Регистрация успешна
+    Keycloak --> Individuals: Пользователь создан
+
+    Individuals -> Kafka: notification.created\nUSER_REGISTERED
+    Kafka --> Individuals: Event accepted
+
+    Individuals --> User: 200 OK + token
+else Ошибка создания в Keycloak
+    Keycloak --> Individuals: Error
+    Individuals -> PersonService: Компенсация - удалить пользователя
+    Individuals --> User: Registration failed
+end
+
+
+== Уведомление от Webhook Collector ==
+
+WebhookCollector -> Kafka: notification.created
+Kafka --> WebhookCollector: Event accepted
+
+
+== Обработка notification.created ==
+
+Kafka -> NotificationConsumer: NotificationCreated (Avro)
+
+NotificationConsumer -> NotificationService: process(notification)
+
+NotificationService -> NotificationDb: Сохранить уведомление\nstatus = NEW
+NotificationDb --> NotificationService: Notification saved
+
+alt type == USER_REGISTERED
+    NotificationService -> EmailService: Отправить welcome email
+    EmailService -> SMTP: SEND email
+    SMTP --> EmailService: Accepted
+    EmailService --> NotificationService: Email sent
+end
+
+NotificationService --> NotificationConsumer: Processing completed
+
+
+== Получение уведомлений ==
+
+User -> NotificationService: GET /api/v1/notifications/{userUid}
+NotificationService -> NotificationDb: SELECT by userUid
+NotificationDb --> NotificationService: Notifications
+NotificationService --> User: 200 OK + notifications
+
+
+== Изменение статуса ==
+
+User -> NotificationService: PATCH /api/v1/notifications/{id}/status
+NotificationService -> NotificationDb: NEW -> COMPLETED
+NotificationDb --> NotificationService: Updated notification
+NotificationService --> User: 200 OK
+
+@enduml
