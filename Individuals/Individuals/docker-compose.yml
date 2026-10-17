@@ -321,23 +321,36 @@ services:
   webhook-collector-service:
     build:
       context: ../../webhook-collector-service
+
     container_name: individuals-webhook-collector
+
     ports:
       - "7878:7878"
+
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://webhook-collector-db:5432/webhook_collector_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
 
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+      TRANSACTION_SERVICE_URL: http://transaction-service:8585
 
       WEBHOOK_SECURITY_TOKEN: fake-provider-secret
 
     depends_on:
       webhook-collector-db:
         condition: service_healthy
+
       kafka:
         condition: service_healthy
+
+      schema-registry:
+        condition: service_started
+
+      transaction-service:
+        condition: service_started
 
 
   # =========================================================
@@ -464,13 +477,23 @@ services:
       KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/individuals-realm
       KEYCLOAK_CLIENT_SECRET: nKn2N45FZaUnjvMYDbhcROGKbW6U4JZE
 
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
     depends_on:
       payment-service:
         condition: service_started
+
       keycloak:
+        condition: service_started
+
+      kafka:
+        condition: service_healthy
+
+      schema-registry:
         condition: service_started
 
 

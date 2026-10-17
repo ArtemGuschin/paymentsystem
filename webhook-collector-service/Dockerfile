@@ -9,9 +9,13 @@ COPY settings.gradle.kts .
 
 RUN chmod +x gradlew
 
+# Во время Docker build Nexus работает на host-машине,
+# поэтому localhost внутри build-container использовать нельзя.
+RUN sed -i 's#http://localhost:8081#http://host.docker.internal:8081#g' build.gradle.kts
+
 COPY src src
 
-RUN ./gradlew clean bootJar -x test
+RUN ./gradlew clean bootJar -x test --no-daemon
 
 FROM eclipse-temurin:21-jre
 
