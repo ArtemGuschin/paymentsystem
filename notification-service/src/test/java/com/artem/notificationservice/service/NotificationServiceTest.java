@@ -1,10 +1,11 @@
+
 package com.artem.notificationservice.service;
 
 import com.artem.common.notification.avro.NotificationCreated;
 import com.artem.common.notification.dto.NotificationResponse;
 import com.artem.common.notification.dto.NotificationStatus;
-import com.artem.notificationservice.email.EmailService;
 import com.artem.notificationservice.exception.NotificationNotFoundException;
+import com.artem.notificationservice.model.EmailDeliveryStatus;
 import com.artem.notificationservice.model.NotificationEntity;
 import com.artem.notificationservice.repository.NotificationRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,20 +21,18 @@ import static org.mockito.Mockito.*;
 class NotificationServiceTest {
 
     private NotificationRepository notificationRepository;
-    private EmailService emailService;
     private NotificationService notificationService;
 
     @BeforeEach
     void setUp() {
         notificationRepository = mock(NotificationRepository.class);
-        emailService = mock(EmailService.class);
 
-        NotificationMapper notificationMapper = new NotificationMapper();
+        NotificationMapper notificationMapper =
+                new NotificationMapper();
 
         notificationService = new NotificationService(
                 notificationRepository,
-                notificationMapper,
-                emailService
+                notificationMapper
         );
     }
 
@@ -46,16 +45,19 @@ class NotificationServiceTest {
         when(notificationRepository.findById(1L))
                 .thenReturn(Optional.of(notification));
 
-        when(notificationRepository.saveAndFlush(any(NotificationEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(notificationRepository.saveAndFlush(
+                any(NotificationEntity.class)
+        )).thenAnswer(invocation -> invocation.getArgument(0));
 
         NotificationResponse response =
                 notificationService.completeNotification(1L);
 
-        assertEquals(NotificationStatus.COMPLETED, response.notificationStatus());
+        assertEquals(
+                NotificationStatus.COMPLETED,
+                response.notificationStatus()
+        );
 
-        verify(notificationRepository)
-                .saveAndFlush(notification);
+        verify(notificationRepository).saveAndFlush(notification);
     }
 
     @Test
@@ -70,7 +72,10 @@ class NotificationServiceTest {
         NotificationResponse response =
                 notificationService.completeNotification(1L);
 
-        assertEquals(NotificationStatus.COMPLETED, response.notificationStatus());
+        assertEquals(
+                NotificationStatus.COMPLETED,
+                response.notificationStatus()
+        );
 
         verify(notificationRepository, never())
                 .saveAndFlush(any());
@@ -105,12 +110,10 @@ class NotificationServiceTest {
 
         verify(notificationRepository, never())
                 .saveAndFlush(any());
-
-        verifyNoInteractions(emailService);
     }
 
     @Test
-    void shouldSaveNotificationAndSendRegistrationEmail() {
+    void shouldSaveRegistrationNotificationAsPending() {
         NotificationCreated event = mock(NotificationCreated.class);
 
         when(event.getEventId())
@@ -128,26 +131,16 @@ class NotificationServiceTest {
         when(event.getCreatedBy())
                 .thenReturn("SYSTEM");
 
-        when(notificationRepository.existsByEventId(
-                "22222222-2222-2222-2222-222222222222"
-        )).thenReturn(false);
-
-        notificationService.process(event);
-
-        verify(emailService).sendRegistrationEmail(
-                "user@example.com",
-                "Welcome to Payment System",
-                "Welcome to Payment System"
-        );
-
         ArgumentCaptor<NotificationEntity> captor =
                 ArgumentCaptor.forClass(NotificationEntity.class);
 
-        verify(notificationRepository, times(2))
+        notificationService.process(event);
+
+        verify(notificationRepository, times(1))
                 .saveAndFlush(captor.capture());
 
         NotificationEntity savedNotification =
-                captor.getAllValues().getLast();
+                captor.getValue();
 
         assertEquals(
                 NotificationStatus.NEW,
@@ -164,7 +157,23 @@ class NotificationServiceTest {
                 savedNotification.getRecipientEmail()
         );
 
-        assertNotNull(savedNotification.getEmailSentAt());
+        assertEquals(
+                EmailDeliveryStatus.PENDING,
+                savedNotification.getEmailDeliveryStatus()
+        );
+
+        assertNotNull(
+                savedNotification.getEmailNextAttemptAt()
+        );
+
+        assertNull(
+                savedNotification.getEmailSentAt()
+        );
+
+        assertEquals(
+                0,
+                savedNotification.getEmailAttemptCount()
+        );
     }
 
     @Test
@@ -175,22 +184,50 @@ class NotificationServiceTest {
                 .thenReturn("44444444-4444-4444-4444-444444444444");
         when(event.getNotificationType())
                 .thenReturn("USER_REGISTERED");
-        when(event.getMessage())
-                .thenReturn("Welcome");
-        when(event.getUserUid())
-                .thenReturn("55555555-5555-5555-5555-555555555555");
         when(event.getEmail())
                 .thenReturn(null);
-        when(event.getSubject())
-                .thenReturn("Registration");
-        when(event.getCreatedBy())
-                .thenReturn("SYSTEM");
 
         assertThrows(
                 IllegalStateException.class,
                 () -> notificationService.process(event)
         );
 
-        verifyNoInteractions(emailService);
+        verify(notificationRepository, never())
+                .saveAndFlush(any());
+    }
+
+    @Test
+    void shouldNotScheduleEmailForOtherNotificationTypes() {
+        NotificationCreated event = mock(NotificationCreated.class);
+
+        when(event.getEventId())
+                .thenReturn("55555555-5555-5555-5555-555555555555");
+        when(event.getNotificationType())
+                .thenReturn("PAYMENT_SUCCEEDED");
+        when(event.getMessage())
+                .thenReturn("Payment completed");
+        when(event.getUserUid())
+                .thenReturn("66666666-6666-6666-6666-666666666666");
+        when(event.getSubject())
+                .thenReturn("Payment successful");
+        when(event.getCreatedBy())
+                .thenReturn("SYSTEM");
+
+        notificationService.process(event);
+
+        ArgumentCaptor<NotificationEntity> captor =
+                ArgumentCaptor.forClass(NotificationEntity.class);
+
+        verify(notificationRepository)
+                .saveAndFlush(captor.capture());
+
+        NotificationEntity savedNotification = captor.getValue();
+
+        assertEquals(
+                EmailDeliveryStatus.NOT_REQUIRED,
+                savedNotification.getEmailDeliveryStatus()
+        );
+
+        assertNull(savedNotification.getEmailNextAttemptAt());
     }
 }

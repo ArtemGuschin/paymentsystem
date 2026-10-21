@@ -53,6 +53,26 @@ public class NotificationEntity {
     @Column(name = "email_sent_at")
     private LocalDateTime emailSentAt;
 
+
+    @Enumerated(EnumType.STRING)
+    @Column(
+            name = "email_delivery_status",
+            nullable = false,
+            length = 20
+    )
+    private EmailDeliveryStatus emailDeliveryStatus =
+            EmailDeliveryStatus.NOT_REQUIRED;
+
+    @Column(name = "email_attempt_count", nullable = false)
+    private int emailAttemptCount = 0;
+
+    @Column(name = "email_next_attempt_at")
+    private LocalDateTime emailNextAttemptAt;
+
+    @Column(name = "email_last_error", columnDefinition = "TEXT")
+    private String emailLastError;
+
+
     @PrePersist
     public void prePersist() {
         if (createdAt == null) {

@@ -25,6 +25,7 @@ spring:
     properties:
       schema.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8086}
 
+
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
@@ -32,8 +33,12 @@ spring:
       mail:
         smtp:
           auth: false
+          connectiontimeout: 5000
+          timeout: 10000
+          writetimeout: 10000
           starttls:
             enable: false
+
 
   jpa:
     hibernate:

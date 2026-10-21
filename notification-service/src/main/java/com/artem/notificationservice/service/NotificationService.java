@@ -1,10 +1,11 @@
+
 package com.artem.notificationservice.service;
 
 import com.artem.common.notification.avro.NotificationCreated;
 import com.artem.common.notification.dto.NotificationResponse;
 import com.artem.common.notification.dto.NotificationStatus;
-import com.artem.notificationservice.email.EmailService;
 import com.artem.notificationservice.exception.NotificationNotFoundException;
+import com.artem.notificationservice.model.EmailDeliveryStatus;
 import com.artem.notificationservice.model.NotificationEntity;
 import com.artem.notificationservice.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,10 +25,11 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationMapper notificationMapper;
-    private final EmailService emailService;
 
     @Transactional(readOnly = true)
-    public List<NotificationResponse> getNotificationsByUserUid(String userUid) {
+    public List<NotificationResponse> getNotificationsByUserUid(
+            String userUid
+    ) {
         return notificationRepository
                 .findAllByUserUidOrderByCreatedAtDesc(userUid)
                 .stream()
@@ -37,14 +39,21 @@ public class NotificationService {
 
     @Transactional
     public NotificationResponse completeNotification(Long id) {
-        NotificationEntity notification = notificationRepository.findById(id)
-                .orElseThrow(() -> new NotificationNotFoundException(id));
 
-        if (notification.getNotificationStatus() == NotificationStatus.COMPLETED) {
+        NotificationEntity notification =
+                notificationRepository.findById(id)
+                        .orElseThrow(
+                                () -> new NotificationNotFoundException(id)
+                        );
+
+        if (notification.getNotificationStatus()
+                == NotificationStatus.COMPLETED) {
             return notificationMapper.toResponse(notification);
         }
 
-        notification.setNotificationStatus(NotificationStatus.COMPLETED);
+        notification.setNotificationStatus(
+                NotificationStatus.COMPLETED
+        );
 
         NotificationEntity updatedNotification =
                 notificationRepository.saveAndFlush(notification);
@@ -54,6 +63,7 @@ public class NotificationService {
 
     @Transactional
     public void process(NotificationCreated event) {
+
         String eventId = event.getEventId();
 
         if (notificationRepository.existsByEventId(eventId)) {
@@ -64,7 +74,19 @@ public class NotificationService {
             return;
         }
 
-        NotificationEntity notification = new NotificationEntity();
+        boolean requiresEmail =
+                USER_REGISTERED.equals(event.getNotificationType());
+
+        if (requiresEmail &&
+                (event.getEmail() == null ||
+                        event.getEmail().isBlank())) {
+            throw new IllegalStateException(
+                    "Recipient email is required for USER_REGISTERED notification"
+            );
+        }
+
+        NotificationEntity notification =
+                new NotificationEntity();
 
         notification.setEventId(eventId);
         notification.setMessage(event.getMessage());
@@ -75,42 +97,31 @@ public class NotificationService {
         notification.setNotificationType(event.getNotificationType());
         notification.setRecipientEmail(event.getEmail());
 
-        notificationRepository.saveAndFlush(notification);
+        if (requiresEmail) {
 
-        if (USER_REGISTERED.equals(event.getNotificationType())) {
-            sendRegistrationEmail(notification);
-        }
+            notification.setEmailDeliveryStatus(
+                    EmailDeliveryStatus.PENDING
+            );
 
-        log.info(
-                "Notification processed: eventId={}, userUid={}, type={}",
-                eventId,
-                event.getUserUid(),
-                event.getNotificationType()
-        );
-    }
+            notification.setEmailNextAttemptAt(
+                    LocalDateTime.now()
+            );
 
-    private void sendRegistrationEmail(NotificationEntity notification) {
-        String recipientEmail = notification.getRecipientEmail();
+        } else {
 
-        if (recipientEmail == null || recipientEmail.isBlank()) {
-            throw new IllegalStateException(
-                    "Recipient email is required for USER_REGISTERED notification"
+            notification.setEmailDeliveryStatus(
+                    EmailDeliveryStatus.NOT_REQUIRED
             );
         }
 
-        emailService.sendRegistrationEmail(
-                recipientEmail,
-                notification.getSubject(),
-                notification.getMessage()
-        );
-
-        notification.setEmailSentAt(LocalDateTime.now());
         notificationRepository.saveAndFlush(notification);
 
         log.info(
-                "Registration email sent: eventId={}, recipient={}",
-                notification.getEventId(),
-                recipientEmail
+                "Notification saved: eventId={}, userUid={}, type={}, emailStatus={}",
+                eventId,
+                event.getUserUid(),
+                event.getNotificationType(),
+                notification.getEmailDeliveryStatus()
         );
     }
 }
