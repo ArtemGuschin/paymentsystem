@@ -2,6 +2,14 @@ spring:
   application:
     name: webhook-collector-service
 
+
+  task:
+    scheduling:
+      pool:
+        size: 2
+      thread-name-prefix: outbox-scheduler-
+
+
   datasource:
     url: jdbc:postgresql://localhost:5432/webhook_collector_db
     username: postgres
