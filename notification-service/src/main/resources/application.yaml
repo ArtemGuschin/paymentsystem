@@ -8,8 +8,12 @@ spring:
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+    properties:
+      "[schema.registry.url]": ${SCHEMA_REGISTRY_URL:http://localhost:8086}
 
 
     consumer:
