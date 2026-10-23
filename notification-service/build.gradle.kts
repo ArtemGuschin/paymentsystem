@@ -38,12 +38,14 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-mail")
+    implementation("org.springframework.boot:spring-boot-starter-security")
 
     implementation("org.springframework.kafka:spring-kafka")
 
     implementation("io.confluent:kafka-avro-serializer:7.9.0")
 
     implementation("org.flywaydb:flyway-core")
+
 
     implementation("com.artem:common-library:1.0.0-20261013.134120-1")
 
@@ -57,6 +59,7 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.kafka:spring-kafka-test")
+    testImplementation("org.springframework.security:spring-security-test")
 
     testImplementation("org.testcontainers:junit-jupiter:1.21.4")
     testImplementation("org.testcontainers:postgresql:1.21.4")
@@ -69,4 +72,7 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+
+    environment("NOTIFICATION_INTERNAL_USERNAME", "notification-test")
+    environment("NOTIFICATION_INTERNAL_PASSWORD", "test-password-only")
 }
