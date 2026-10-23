@@ -271,8 +271,8 @@ services:
 
     container_name: individuals-notification-service
 
-    ports:
-      - "8787:8787"
+    expose:
+      - "8787"
 
     environment:
       DB_URL: jdbc:postgresql://notification-db:5432/notification_db
@@ -285,6 +285,9 @@ services:
       MAIL_HOST: mailhog
       MAIL_PORT: 1025
       MAIL_FROM: no-reply@payment-system.local
+
+      NOTIFICATION_INTERNAL_USERNAME: ${NOTIFICATION_INTERNAL_USERNAME:?Set NOTIFICATION_INTERNAL_USERNAME in .env}
+      NOTIFICATION_INTERNAL_PASSWORD: ${NOTIFICATION_INTERNAL_PASSWORD:?Set NOTIFICATION_INTERNAL_PASSWORD in .env}
 
     depends_on:
       notification-db:
