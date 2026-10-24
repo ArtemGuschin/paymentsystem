@@ -5,12 +5,14 @@ import com.artem.individuals.client.KeycloakIntegrationClient;
 import com.artem.individuals.dto.request.RegistrationRequest;
 import com.artem.individuals.dto.response.TokenResponse;
 import com.artem.individuals.dto.response.UserResponse;
-import com.artem.individuals.kafka.NotificationEventProducer;
+
+import com.artem.individuals.outbox.NotificationOutboxService;
 import com.artem.model.UserCreateRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @Slf4j
 @Service
@@ -20,12 +22,14 @@ public class UserService {
     private final KeycloakIntegrationClient keycloakClient;
     private final TokenService tokenService;
     private final UsersApi usersApi;
-    private final NotificationEventProducer notificationEventProducer;
+    private final NotificationOutboxService notificationOutboxService;
+
 
     public Mono<TokenResponse> registerUser(RegistrationRequest request) {
         return validateRegistrationRequest(request)
                 .flatMap(r -> {
                     UserCreateRequest userCreateRequest = new UserCreateRequest();
+
                     userCreateRequest.setEmail(request.getEmail());
                     userCreateRequest.setPassword(request.getPassword());
                     userCreateRequest.setFirstName(request.getFirstName());
@@ -34,10 +38,16 @@ public class UserService {
                     userCreateRequest.setIndividual(request.getIndividual());
 
                     // 1. Создаем пользователя в Person Service
-                    return Mono.fromCallable(() -> usersApi.createUser(userCreateRequest))
+                    return Mono.fromCallable(
+                                    () -> usersApi.createUser(userCreateRequest)
+                            )
                             .flatMap(userResponse ->
 
                                     // 2. Создаем пользователя в Keycloak
+                                    // и получаем access token.
+                                    //
+                                    // Compensation относится ТОЛЬКО
+                                    // к этой части registration flow.
                                     keycloakClient.createUserInKeycloak(
                                                     request.getEmail(),
                                                     request.getPassword(),
@@ -45,41 +55,15 @@ public class UserService {
                                                     request.getLastName(),
                                                     request.getRole()
                                             )
-
-                                            // createUserInKeycloak возвращает Mono<Void>,
-                                            // поэтому здесь нужен then(), а не flatMap()
                                             .then(
                                                     tokenService.getAccessToken(
                                                             request.getEmail(),
                                                             request.getPassword()
                                                     )
                                             )
-
-                                            // 3. После успешного получения token
-                                            // публикуем notification.created
-                                            .flatMap(tokenResponse ->
-                                                    notificationEventProducer
-                                                            .sendUserRegisteredNotification(
-                                                                    userResponse.getId(),
-                                                                    request.getEmail()
-                                                            )
-                                                            .onErrorResume(error -> {
-                                                                log.error(
-                                                                        "Registration completed, but notification event publishing failed for userUid={}",
-                                                                        userResponse.getId(),
-                                                                        error
-                                                                );
-
-                                                                return Mono.empty();
-                                                            })
-                                                            .thenReturn(tokenResponse)
-                                            )
-
-                                            // 4. Если Keycloak или получение token упали,
-                                            // компенсируем Person Service
                                             .onErrorResume(throwable -> {
                                                 log.error(
-                                                        "Registration flow failed, compensating Person Service",
+                                                        "Registration flow failed before completion, compensating Person Service",
                                                         throwable
                                                 );
 
@@ -89,12 +73,42 @@ public class UserService {
                                                                     userResponse.getId()
                                                             );
 
-                                                            usersApi.deleteUser(userResponse.getId());
+                                                            usersApi.deleteUser(
+                                                                    userResponse.getId()
+                                                            );
 
                                                             return userResponse;
                                                         })
-                                                        .then(Mono.error(throwable));
+                                                        .then(
+                                                                Mono.error(
+                                                                        throwable
+                                                                )
+                                                        );
                                             })
+
+                                            // 3. К этому моменту регистрация уже успешна.
+                                            //
+                                            // Ошибка notification НЕ должна попадать
+                                            // в compensation регистрации.
+
+                                            .flatMap(tokenResponse ->
+                                                    Mono.fromCallable(() ->
+                                                                    notificationOutboxService.saveUserRegistered(
+                                                                            userResponse.getId(),
+                                                                            request.getEmail()
+                                                                    )
+                                                            )
+                                                            .subscribeOn(Schedulers.boundedElastic())
+                                                            .doOnNext(eventId ->
+                                                                    log.info(
+                                                                            "Registration notification saved to Outbox: eventId={}, userUid={}",
+                                                                            eventId,
+                                                                            userResponse.getId()
+                                                                    )
+                                                            )
+                                                            .thenReturn(tokenResponse)
+                                            )
+
                             );
                 });
     }

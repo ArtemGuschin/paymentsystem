@@ -14,7 +14,7 @@ services:
     ports:
       - "5434:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d payment_service"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d payment_service" ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -34,7 +34,7 @@ services:
     ports:
       - "5435:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d fake_provider"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d fake_provider" ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -299,6 +299,8 @@ services:
       mailhog:
         condition: service_started
 
+
+
   # =========================================================
   # KAFKA UI
   # =========================================================
@@ -433,6 +435,31 @@ services:
       kafka:
         condition: service_healthy
 
+  # =========================================================
+  # INDIVIDUALS API OUTBOX DATABASE
+  # =========================================================
+
+  individuals-api-db:
+    image: postgres:15
+    container_name: individuals-api-db
+
+    environment:
+      POSTGRES_DB: individuals_api_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    ports:
+      - "5440:5432"
+
+    volumes:
+      - individuals-api-db-data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d individuals_api_db" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 
   # =========================================================
   # KEYCLOAK
@@ -478,10 +505,18 @@ services:
 
       KEYCLOAK_SERVER_URL: http://keycloak:8080
       KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/individuals-realm
-      KEYCLOAK_CLIENT_SECRET: nKn2N45FZaUnjvMYDbhcROGKbW6U4JZE
+      KEYCLOAK_CLIENT_SECRET: "${KEYCLOAK_CLIENT_SECRET:?Set KEYCLOAK_CLIENT_SECRET in .env}"
 
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+      PERSON_SERVICE_URL: http://host.docker.internal:8091
+
+
+
+      DB_URL: jdbc:postgresql://individuals-api-db:5432/individuals_api_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
 
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -489,6 +524,9 @@ services:
     depends_on:
       payment-service:
         condition: service_started
+
+      individuals-api-db:
+        condition: service_healthy
 
       keycloak:
         condition: service_started
@@ -535,3 +573,7 @@ services:
 
     depends_on:
       - prometheus
+
+
+volumes:
+  individuals-api-db-data:
