@@ -2,10 +2,21 @@ spring:
   application:
     name: webhook-collector-service
 
+
+  task:
+    scheduling:
+      pool:
+        size: 2
+      thread-name-prefix: outbox-scheduler-
+
+
   datasource:
     url: jdbc:postgresql://localhost:5432/webhook_collector_db
     username: postgres
     password: postgres
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
 server:
   port: 7878
@@ -13,3 +24,6 @@ server:
 webhook:
   security:
     token: ${WEBHOOK_SECURITY_TOKEN:fake-provider-secret}
+
+transaction-service:
+  url: ${TRANSACTION_SERVICE_URL:http://localhost:8585}

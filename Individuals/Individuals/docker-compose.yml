@@ -14,7 +14,7 @@ services:
     ports:
       - "5434:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d payment_service"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d payment_service" ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -34,7 +34,7 @@ services:
     ports:
       - "5435:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d fake_provider"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d fake_provider" ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -204,6 +204,102 @@ services:
       timeout: 5s
       retries: 12
 
+  # =========================================================
+  # SCHEMA REGISTRY
+  # =========================================================
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.0
+    container_name: individuals-schema-registry
+
+    ports:
+      - "8086:8081"
+
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:29092
+
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+
+  # =========================================================
+  # MAILHOG
+  # =========================================================
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: individuals-mailhog
+
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+
+  # =========================================================
+  # NOTIFICATION SERVICE DATABASE
+  # =========================================================
+
+  notification-db:
+    image: postgres:15
+    container_name: individuals-notification-db
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5439:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U postgres -d notification_db"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # =========================================================
+  # NOTIFICATION SERVICE
+  # =========================================================
+
+  notification-service:
+    build:
+      context: ../../notification-service
+
+    container_name: individuals-notification-service
+
+    expose:
+      - "8787"
+
+    environment:
+      DB_URL: jdbc:postgresql://notification-db:5432/notification_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+      MAIL_HOST: mailhog
+      MAIL_PORT: 1025
+      MAIL_FROM: no-reply@payment-system.local
+
+      NOTIFICATION_INTERNAL_USERNAME: ${NOTIFICATION_INTERNAL_USERNAME:?Set NOTIFICATION_INTERNAL_USERNAME in .env}
+      NOTIFICATION_INTERNAL_PASSWORD: ${NOTIFICATION_INTERNAL_PASSWORD:?Set NOTIFICATION_INTERNAL_PASSWORD in .env}
+
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_started
+      mailhog:
+        condition: service_started
+
+
 
   # =========================================================
   # KAFKA UI
@@ -230,23 +326,36 @@ services:
   webhook-collector-service:
     build:
       context: ../../webhook-collector-service
+
     container_name: individuals-webhook-collector
+
     ports:
       - "7878:7878"
+
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://webhook-collector-db:5432/webhook_collector_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
 
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+      TRANSACTION_SERVICE_URL: http://transaction-service:8585
 
       WEBHOOK_SECURITY_TOKEN: fake-provider-secret
 
     depends_on:
       webhook-collector-db:
         condition: service_healthy
+
       kafka:
         condition: service_healthy
+
+      schema-registry:
+        condition: service_started
+
+      transaction-service:
+        condition: service_started
 
 
   # =========================================================
@@ -326,6 +435,31 @@ services:
       kafka:
         condition: service_healthy
 
+  # =========================================================
+  # INDIVIDUALS API OUTBOX DATABASE
+  # =========================================================
+
+  individuals-api-db:
+    image: postgres:15
+    container_name: individuals-api-db
+
+    environment:
+      POSTGRES_DB: individuals_api_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    ports:
+      - "5440:5432"
+
+    volumes:
+      - individuals-api-db-data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d individuals_api_db" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 
   # =========================================================
   # KEYCLOAK
@@ -371,7 +505,18 @@ services:
 
       KEYCLOAK_SERVER_URL: http://keycloak:8080
       KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/individuals-realm
-      KEYCLOAK_CLIENT_SECRET: nKn2N45FZaUnjvMYDbhcROGKbW6U4JZE
+      KEYCLOAK_CLIENT_SECRET: "${KEYCLOAK_CLIENT_SECRET:?Set KEYCLOAK_CLIENT_SECRET in .env}"
+
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+      PERSON_SERVICE_URL: http://host.docker.internal:8091
+
+
+
+      DB_URL: jdbc:postgresql://individuals-api-db:5432/individuals_api_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
 
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -379,7 +524,17 @@ services:
     depends_on:
       payment-service:
         condition: service_started
+
+      individuals-api-db:
+        condition: service_healthy
+
       keycloak:
+        condition: service_started
+
+      kafka:
+        condition: service_healthy
+
+      schema-registry:
         condition: service_started
 
 
@@ -418,3 +573,7 @@ services:
 
     depends_on:
       - prometheus
+
+
+volumes:
+  individuals-api-db-data:

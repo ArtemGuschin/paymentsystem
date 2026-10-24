@@ -1,0 +1,32 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_LEFT_RIGHT()
+
+Person(user, "Пользователь", "Получает уведомления и работает с REST API")
+
+System_Boundary(paymentSystem, "Payment System") {
+    Container(individuals, "Individuals API", "Spring Boot", "Публикует событие уведомления после успешной регистрации пользователя")
+    Container(webhookCollector, "Webhook Collector Service", "Spring Boot", "Формирует уведомления по результатам внешних событий")
+    Container(kafka, "Kafka", "Apache Kafka", "Доставка событий notification.created")
+    Container(schemaRegistry, "Schema Registry", "Confluent Schema Registry", "Хранение и версионирование Avro-схем")
+    Container(notificationService, "Notification Service", "Java 21, Spring Boot 3.5", "Принимает Kafka-события, сохраняет уведомления, отправляет email и предоставляет REST API")
+    ContainerDb(notificationDb, "Notification DB", "PostgreSQL", "Хранение уведомлений пользователей")
+}
+
+System_Ext(smtp, "SMTP Server", "Внешняя почтовая система для доставки email")
+
+Rel(individuals, kafka, "Публикует notification.created", "Avro / Kafka")
+Rel(webhookCollector, kafka, "Публикует notification.created", "Avro / Kafka")
+
+Rel(individuals, schemaRegistry, "Использует схему NotificationCreated", "HTTP")
+Rel(webhookCollector, schemaRegistry, "Использует схему NotificationCreated", "HTTP")
+
+Rel(kafka, notificationService, "Передает notification.created", "Avro / Kafka")
+Rel(notificationService, schemaRegistry, "Получает Avro-схему для десериализации", "HTTP")
+
+Rel(notificationService, notificationDb, "Создает и обновляет уведомления", "JPA / JDBC")
+Rel(notificationService, smtp, "Отправляет registration email", "SMTP")
+Rel(user, notificationService, "Получает уведомления и меняет их статус", "REST / JSON")
+
+@enduml

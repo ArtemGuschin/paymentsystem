@@ -1,6 +1,7 @@
 package com.artem.individuals.service;
 
 import com.artem.individuals.client.KeycloakIntegrationClient;
+import java.time.Duration;
 import com.artem.individuals.dto.request.RegistrationRequest;
 import com.artem.individuals.dto.response.TokenResponse;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -48,7 +49,11 @@ class KeycloakIntegrationClientTest {
             .withEnv("KEYCLOAK_ADMIN", ADMIN_USER)
             .withEnv("KEYCLOAK_ADMIN_PASSWORD", ADMIN_PASSWORD)
             .withCommand("start-dev")
-            .waitingFor(Wait.forHttp("/admin").forStatusCode(200));
+            .waitingFor(
+                    Wait.forHttp("/realms/master/.well-known/openid-configuration")
+                            .forStatusCode(200)
+                            .withStartupTimeout(Duration.ofMinutes(3))
+            );
 
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {
