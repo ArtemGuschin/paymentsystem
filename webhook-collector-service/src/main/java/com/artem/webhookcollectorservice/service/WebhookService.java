@@ -34,8 +34,13 @@ public class WebhookService {
     private static final String TRANSACTION_SUCCESS =
             "TRANSACTION_SUCCESS";
 
+    private static final String TRANSACTION_FAILED =
+            "TRANSACTION_FAILED";
+
     private static final String PAYMENT_SUCCEEDED =
             "PAYMENT_SUCCEEDED";
+    private static final String PAYMENT_FAILED =
+            "PAYMENT_FAILED";
 
     private static final String SYSTEM =
             "SYSTEM";
@@ -60,9 +65,9 @@ public class WebhookService {
              * Неизвестные типы webhook сохраняем отдельно.
              * Kafka-события по ним не создаём.
              */
-            if (!TRANSACTION_SUCCESS.equals(
-                    request.getEventType()
-            )) {
+            if (!TRANSACTION_SUCCESS.equals(request.getEventType())
+                    && !TRANSACTION_FAILED.equals(request.getEventType())) {
+
 
                 unknownCallbackRepository.save(
                         new UnknownCallbackEntity(
@@ -74,12 +79,17 @@ public class WebhookService {
             }
 
             /*
-             * Для TRANSACTION_SUCCESS ожидаем только SUCCESS.
+             * Тип события должен соответствовать статусу:
+             *
+             * TRANSACTION_SUCCESS -> SUCCESS
+             * TRANSACTION_FAILED  -> FAILED
              */
-            if (!"SUCCESS".equals(
-                    request.getPayload().getStatus()
-            )) {
+            String expectedStatus =
+                    TRANSACTION_SUCCESS.equals(request.getEventType())
+                            ? "SUCCESS"
+                            : "FAILED";
 
+            if (!expectedStatus.equals(request.getPayload().getStatus())) {
                 throw new InvalidWebhookException(
                         "Status "
                                 + request.getPayload().getStatus()
@@ -153,17 +163,27 @@ public class WebhookService {
              * OutboxPublisher получит его позднее
              * из Transaction Service по transactionUid.
              */
+
+            boolean success =
+                    TRANSACTION_SUCCESS.equals(request.getEventType());
+
             NotificationOutboxPayload notificationPayload =
                     new NotificationOutboxPayload(
                             UUID.randomUUID().toString(),
-                            PAYMENT_SUCCEEDED,
-                            buildSuccessMessage(request),
+                            success ? PAYMENT_SUCCEEDED : PAYMENT_FAILED,
+                            success
+                                    ? buildSuccessMessage(request)
+                                    : "Payment provider rejected transaction "
+                                    + transactionUid
+                                    + ". Amount: "
+                                    + request.getPayload().getAmount(),
                             transactionUid.toString(),
                             null,
-                            "Payment completed",
+                            success ? "Payment completed" : "Payment failed",
                             SYSTEM,
                             Instant.now().toEpochMilli()
                     );
+
 
             String notificationJson =
                     objectMapper.writeValueAsString(

@@ -376,6 +376,7 @@ services:
       WEBHOOK_COLLECTOR_URL: http://webhook-collector-service:7878/api/v1/webhooks/payment-provider
       WEBHOOK_SECURITY_TOKEN: fake-provider-secret
 
+
     depends_on:
       individuals-provider-db:
         condition: service_healthy
@@ -502,6 +503,7 @@ services:
 
     environment:
       PAYMENT_SERVICE_URL: http://payment-service:8083
+      TRANSACTION_SERVICE_URL: http://transaction-service:8585/api/v1
 
       KEYCLOAK_SERVER_URL: http://keycloak:8080
       KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/individuals-realm
