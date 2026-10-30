@@ -2,10 +2,13 @@ package com.artem.notificationservice.repository;
 
 import com.artem.common.notification.dto.NotificationStatus;
 import com.artem.notificationservice.model.NotificationEntity;
+import com.artem.notificationservice.service.NotificationMapper;
+import com.artem.notificationservice.service.NotificationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -20,6 +23,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import com.artem.notificationservice.service.NotificationService;
+import com.artem.notificationservice.service.NotificationMapper;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -34,10 +43,26 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Testcontainers
 @DataJpaTest
+@Import({
+        NotificationService.class,
+        NotificationMapper.class
+})
+
 @AutoConfigureTestDatabase(
         replace = AutoConfigureTestDatabase.Replace.NONE
 )
+
 class NotificationRepositoryIntegrationTest {
+
+
+    @Autowired
+    private NotificationService notificationService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @Container
     static final PostgreSQLContainer<?> postgres =
@@ -324,6 +349,147 @@ class NotificationRepositoryIntegrationTest {
 
         } finally {
             start.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldNotResetSentEmailWhenNotificationIsCompletedConcurrently()
+            throws Exception {
+
+        // 1. Создаём уведомление с ожидающей отправкой.
+        NotificationEntity notification = createNotification(
+                UUID.randomUUID().toString(),
+                UUID.randomUUID().toString()
+        );
+
+        notification.setEmailDeliveryStatus(
+                EmailDeliveryStatus.PENDING
+        );
+
+        notification.setEmailNextAttemptAt(
+                LocalDateTime.now()
+        );
+
+        Long id = notificationRepository
+                .saveAndFlush(notification)
+                .getId();
+
+        // 2. Синхронизируем два потока.
+        CountDownLatch notificationLoaded =
+                new CountDownLatch(1);
+
+        CountDownLatch emailMarkedSent =
+                new CountDownLatch(1);
+
+        ExecutorService executor =
+                Executors.newFixedThreadPool(2);
+
+        try {
+
+            // ПОТОК №1: изменение статуса уведомления.
+            Future<?> patchFuture = executor.submit(() -> {
+
+                TransactionTemplate transaction =
+                        new TransactionTemplate(transactionManager);
+
+                transaction.executeWithoutResult(status -> {
+
+                    // Загружаем старое состояние в Persistence Context.
+                    NotificationEntity loaded =
+                            notificationRepository.findById(id)
+                                    .orElseThrow();
+
+                    assertEquals(
+                            EmailDeliveryStatus.PENDING,
+                            loaded.getEmailDeliveryStatus()
+                    );
+
+                    notificationLoaded.countDown();
+
+                    try {
+                        if (!emailMarkedSent.await(
+                                10, TimeUnit.SECONDS
+                        )) {
+                            throw new IllegalStateException(
+                                    "Email update timeout"
+                            );
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException(e);
+                    }
+
+                    // PATCH выполняется после того, как email стал SENT.
+                    notificationService.completeNotification(id);
+                });
+            });
+
+            // ПОТОК №2: завершение доставки email.
+            Future<?> emailFuture = executor.submit(() -> {
+
+                if (!notificationLoaded.await(
+                        10, TimeUnit.SECONDS
+                )) {
+                    throw new IllegalStateException(
+                            "Notification load timeout"
+                    );
+                }
+
+                LocalDateTime sentAt = LocalDateTime.now()
+                        .truncatedTo(ChronoUnit.MICROS);
+
+                // Имитируем адресное обновление EmailDeliveryPublisher.
+                int updated = jdbcTemplate.update(
+                        """
+                        UPDATE notifications
+                        SET email_delivery_status = 'SENT',
+                            email_sent_at = ?,
+                            email_next_attempt_at = NULL
+                        WHERE id = ?
+                        """,
+                        sentAt,
+                        id
+                );
+
+                assertEquals(1, updated);
+
+                emailMarkedSent.countDown();
+
+                return null;
+            });
+
+            // 3. Ожидаем завершения обоих потоков.
+            patchFuture.get(20, TimeUnit.SECONDS);
+            emailFuture.get(20, TimeUnit.SECONDS);
+
+            // 4. Повторно читаем актуальное состояние PostgreSQL.
+            NotificationEntity result =
+                    notificationRepository.findById(id)
+                            .orElseThrow();
+
+            // Бизнес-статус изменился.
+            assertEquals(
+                    NotificationStatus.COMPLETED,
+                    result.getNotificationStatus()
+            );
+
+            // Статус доставки НЕ откатился назад.
+            assertEquals(
+                    EmailDeliveryStatus.SENT,
+                    result.getEmailDeliveryStatus()
+            );
+
+            // Дата отправки сохранилась.
+            assertNotNull(result.getEmailSentAt());
+
+            // Повторная отправка не запланирована.
+            assertNull(result.getEmailNextAttemptAt());
+
+        } finally {
+            notificationLoaded.countDown();
+            emailMarkedSent.countDown();
             executor.shutdownNow();
         }
     }

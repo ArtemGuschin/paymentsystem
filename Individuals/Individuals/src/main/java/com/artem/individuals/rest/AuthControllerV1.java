@@ -22,17 +22,34 @@ import java.util.Map;
 public class AuthControllerV1 {
 
     private final UserService userService;
+
     @PostMapping("/registration")
-    public Mono<TokenResponse> register(@Valid @RequestBody RegistrationRequest request) {
+    public Mono<TokenResponse> register(
+            @Valid @RequestBody RegistrationRequest request
+    ) {
+
+        // Проверяем подтверждение пароля.
         if (!request.getPassword().equals(request.getConfirmPassword())) {
-            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password confirmation does not match!!!"));
+            return Mono.error(
+                    new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Password confirmation does not match!!!"
+                    )
+            );
         }
 
         return userService.userExists(request.getEmail())
                 .flatMap(exists -> {
+
                     if (exists) {
-                        return Mono.error(new ResponseStatusException(HttpStatus.CONFLICT, "User already exists"));
+
+                        // Аккаунт уже существует в Keycloak.
+                        // Проверяем пароль и пытаемся восстановить
+                        // недостающее событие USER_REGISTERED.
+                        return userService.recoverRegistration(request);
                     }
+
+                    // Новый пользователь — обычная регистрация.
                     return userService.registerUser(request);
                 });
     }

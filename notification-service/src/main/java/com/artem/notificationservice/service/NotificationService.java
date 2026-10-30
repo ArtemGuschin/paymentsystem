@@ -40,25 +40,24 @@ public class NotificationService {
     @Transactional
     public NotificationResponse completeNotification(Long id) {
 
+        // 1. Обновляем только notification_status и modified_at.
+        // Поля доставки email не затрагиваем.
+        notificationRepository.updateNotificationStatus(
+                id,
+                NotificationStatus.COMPLETED,
+                LocalDateTime.now()
+        );
+
+        // 2. Получаем актуальное состояние уведомления из БД.
+        // Если уведомления нет — возвращаем прежнюю ошибку.
         NotificationEntity notification =
                 notificationRepository.findById(id)
                         .orElseThrow(
                                 () -> new NotificationNotFoundException(id)
                         );
 
-        if (notification.getNotificationStatus()
-                == NotificationStatus.COMPLETED) {
-            return notificationMapper.toResponse(notification);
-        }
-
-        notification.setNotificationStatus(
-                NotificationStatus.COMPLETED
-        );
-
-        NotificationEntity updatedNotification =
-                notificationRepository.saveAndFlush(notification);
-
-        return notificationMapper.toResponse(updatedNotification);
+        // 3. Возвращаем результат.
+        return notificationMapper.toResponse(notification);
     }
 
     @Transactional

@@ -36,6 +36,7 @@ import static org.mockito.Mockito.*;
         classes = NotificationKafkaDltIntegrationTest.KafkaTestApplication.class,
         properties = {
                 "spring.kafka.consumer.group-id=notification-dlt-test",
+                "spring.kafka.consumer.properties.[schema.registry.url]=mock://notification-dlt-test",
                 "spring.kafka.consumer.auto-offset-reset=earliest",
                 "spring.kafka.consumer.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer",
                 "spring.kafka.consumer.value-deserializer=org.springframework.kafka.support.serializer.ErrorHandlingDeserializer",

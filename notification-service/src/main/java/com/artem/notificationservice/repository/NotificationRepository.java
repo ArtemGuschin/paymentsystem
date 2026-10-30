@@ -1,6 +1,7 @@
 
 package com.artem.notificationservice.repository;
 
+import com.artem.common.notification.dto.NotificationStatus;
 import com.artem.notificationservice.model.EmailDeliveryStatus;
 import com.artem.notificationservice.model.NotificationEntity;
 import org.springframework.data.domain.Pageable;
@@ -55,5 +56,21 @@ public interface NotificationRepository
             @Param("sending") EmailDeliveryStatus sending,
             @Param("now") LocalDateTime now,
             @Param("leaseUntil") LocalDateTime leaseUntil
+    );
+    @Modifying(
+            flushAutomatically = true,
+            clearAutomatically = true
+    )
+    @Query("""
+        UPDATE NotificationEntity n
+        SET n.notificationStatus = :status,
+            n.modifiedAt = :modifiedAt
+        WHERE n.id = :id
+          AND n.notificationStatus <> :status
+        """)
+    int updateNotificationStatus(
+            @Param("id") Long id,
+            @Param("status") NotificationStatus status,
+            @Param("modifiedAt") LocalDateTime modifiedAt
     );
 }

@@ -140,4 +140,61 @@ class UserServiceRegistrationTest {
         verify(usersApi).deleteUser(USER_UID);
         verifyNoInteractions(outboxService);
     }
+
+    @Test
+    void shouldRecoverRegistrationAfterOutboxFailure() {
+
+        // 1. Имитируем уже существующего пользователя.
+        UserResponse existingUser = mock(UserResponse.class);
+
+        when(existingUser.getId()).thenReturn(USER_UID);
+
+        when(usersApi.getUserByEmail(EMAIL))
+                .thenReturn(existingUser);
+
+        // 2. Первая запись Outbox падает.
+        // Вторая попытка завершается успешно.
+        when(outboxService.saveUserRegistered(USER_UID, EMAIL))
+                .thenThrow(
+                        new IllegalStateException(
+                                "Outbox database unavailable"
+                        )
+                )
+                .thenReturn(UUID.randomUUID().toString());
+
+        // 3. Первая регистрация завершается ошибкой.
+        StepVerifier.create(
+                        userService.registerUser(registrationRequest())
+                )
+                .expectError(IllegalStateException.class)
+                .verify();
+
+        // 4. Повторно выполняем восстановление.
+        StepVerifier.create(
+                        userService.recoverRegistration(registrationRequest())
+                )
+                .expectNext(tokenResponse)
+                .verifyComplete();
+
+        // 5. Person Service создал пользователя только один раз.
+        verify(usersApi, times(1))
+                .createUser(any(UserCreateRequest.class));
+
+        // 6. Keycloak тоже создал пользователя только один раз.
+        verify(keycloakClient, times(1))
+                .createUserInKeycloak(
+                        EMAIL,
+                        PASSWORD,
+                        "Test",
+                        "User",
+                        "user"
+                );
+
+        // 7. Outbox получил две попытки записи.
+        verify(outboxService, times(2))
+                .saveUserRegistered(USER_UID, EMAIL);
+
+        // 8. Успешного пользователя не удаляли.
+        verify(usersApi, never()).deleteUser(USER_UID);
+    }
 }

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -38,16 +39,27 @@ class NotificationServiceTest {
 
     @Test
     void shouldCompleteNewNotification() {
+
         NotificationEntity notification = new NotificationEntity();
         notification.setId(1L);
         notification.setNotificationStatus(NotificationStatus.NEW);
 
+        when(notificationRepository.updateNotificationStatus(
+                eq(1L),
+                eq(NotificationStatus.COMPLETED),
+                any(LocalDateTime.class)
+        )).thenAnswer(invocation -> {
+
+            // Имитируем изменение статуса в базе данных.
+            notification.setNotificationStatus(
+                    NotificationStatus.COMPLETED
+            );
+
+            return 1;
+        });
+
         when(notificationRepository.findById(1L))
                 .thenReturn(Optional.of(notification));
-
-        when(notificationRepository.saveAndFlush(
-                any(NotificationEntity.class)
-        )).thenAnswer(invocation -> invocation.getArgument(0));
 
         NotificationResponse response =
                 notificationService.completeNotification(1L);
@@ -57,14 +69,28 @@ class NotificationServiceTest {
                 response.notificationStatus()
         );
 
-        verify(notificationRepository).saveAndFlush(notification);
+        verify(notificationRepository).updateNotificationStatus(
+                eq(1L),
+                eq(NotificationStatus.COMPLETED),
+                any(LocalDateTime.class)
+        );
+
+        verify(notificationRepository, never())
+                .saveAndFlush(any());
     }
 
     @Test
     void shouldNotSaveAgainWhenNotificationAlreadyCompleted() {
+
         NotificationEntity notification = new NotificationEntity();
         notification.setId(1L);
         notification.setNotificationStatus(NotificationStatus.COMPLETED);
+
+        when(notificationRepository.updateNotificationStatus(
+                eq(1L),
+                eq(NotificationStatus.COMPLETED),
+                any(LocalDateTime.class)
+        )).thenReturn(0);
 
         when(notificationRepository.findById(1L))
                 .thenReturn(Optional.of(notification));
@@ -75,6 +101,12 @@ class NotificationServiceTest {
         assertEquals(
                 NotificationStatus.COMPLETED,
                 response.notificationStatus()
+        );
+
+        verify(notificationRepository).updateNotificationStatus(
+                eq(1L),
+                eq(NotificationStatus.COMPLETED),
+                any(LocalDateTime.class)
         );
 
         verify(notificationRepository, never())
@@ -83,12 +115,19 @@ class NotificationServiceTest {
 
     @Test
     void shouldThrowWhenNotificationDoesNotExist() {
+
         when(notificationRepository.findById(999L))
                 .thenReturn(Optional.empty());
 
         assertThrows(
                 NotificationNotFoundException.class,
                 () -> notificationService.completeNotification(999L)
+        );
+
+        verify(notificationRepository).updateNotificationStatus(
+                eq(999L),
+                eq(NotificationStatus.COMPLETED),
+                any(LocalDateTime.class)
         );
 
         verify(notificationRepository, never())

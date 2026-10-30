@@ -1,32 +1,55 @@
 @startuml
+
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 
 LAYOUT_LEFT_RIGHT()
 
-Person(user, "Пользователь", "Получает уведомления и работает с REST API")
+title Payment System - Notification Architecture
+
+Person(user, "Пользователь", "Регистрируется в платёжной системе")
+
+System_Ext(internalClient, "Trusted Internal Client", "Авторизованный внутренний клиент REST API")
+System_Ext(smtp, "SMTP / MailHog", "Принимает электронные письма")
 
 System_Boundary(paymentSystem, "Payment System") {
-    Container(individuals, "Individuals API", "Spring Boot", "Публикует событие уведомления после успешной регистрации пользователя")
-    Container(webhookCollector, "Webhook Collector Service", "Spring Boot", "Формирует уведомления по результатам внешних событий")
-    Container(kafka, "Kafka", "Apache Kafka", "Доставка событий notification.created")
-    Container(schemaRegistry, "Schema Registry", "Confluent Schema Registry", "Хранение и версионирование Avro-схем")
-    Container(notificationService, "Notification Service", "Java 21, Spring Boot 3.5", "Принимает Kafka-события, сохраняет уведомления, отправляет email и предоставляет REST API")
-    ContainerDb(notificationDb, "Notification DB", "PostgreSQL", "Хранение уведомлений пользователей")
+
+    Container(individuals, "Individuals API", "Java 21 / Spring Boot", "Регистрация пользователей, сохранение событий в Outbox и их фоновая публикация")
+
+    ContainerDb(individualsDb, "Individuals DB", "PostgreSQL", "Пользовательские данные и notification_outbox")
+
+    Container(webhookCollector, "Webhook Collector Service", "Spring Boot", "Обрабатывает внешние события и публикует уведомления через Outbox")
+
+    ContainerDb(webhookDb, "Webhook Collector DB", "PostgreSQL", "Хранит события Outbox")
+
+    Container(kafka, "Kafka", "Apache Kafka", "notification.created и notification.created.DLT")
+
+    Container(schemaRegistry, "Schema Registry", "Confluent", "Хранение Avro-схем событий")
+
+    Container(notificationService, "Notification Service", "Java 21 / Spring Boot", "Kafka Consumer, REST API, фоновая отправка email, retry и DLT")
+
+    ContainerDb(notificationDb, "Notification DB", "PostgreSQL", "Уведомления, eventId, статусы и попытки доставки email")
 }
 
-System_Ext(smtp, "SMTP Server", "Внешняя почтовая система для доставки email")
+Rel(user, individuals, "Регистрируется", "HTTPS / REST")
 
-Rel(individuals, kafka, "Публикует notification.created", "Avro / Kafka")
-Rel(webhookCollector, kafka, "Публикует notification.created", "Avro / Kafka")
+Rel(individuals, individualsDb, "Сохраняет USER_REGISTERED и читает Outbox", "JPA / JDBC")
+Rel(individuals, kafka, "Outbox Publisher отправляет notification.created", "Kafka / Avro")
 
-Rel(individuals, schemaRegistry, "Использует схему NotificationCreated", "HTTP")
-Rel(webhookCollector, schemaRegistry, "Использует схему NotificationCreated", "HTTP")
+Rel(webhookCollector, webhookDb, "Сохраняет и читает Outbox", "JPA / JDBC")
+Rel(webhookCollector, kafka, "Outbox Publisher отправляет notification.created", "Kafka / Avro")
 
-Rel(kafka, notificationService, "Передает notification.created", "Avro / Kafka")
-Rel(notificationService, schemaRegistry, "Получает Avro-схему для десериализации", "HTTP")
+Rel(individuals, schemaRegistry, "Использует Avro-схему", "HTTP")
+Rel(webhookCollector, schemaRegistry, "Использует Avro-схему", "HTTP")
 
-Rel(notificationService, notificationDb, "Создает и обновляет уведомления", "JPA / JDBC")
-Rel(notificationService, smtp, "Отправляет registration email", "SMTP")
-Rel(user, notificationService, "Получает уведомления и меняет их статус", "REST / JSON")
+Rel(kafka, notificationService, "Доставляет notification.created", "Kafka / Avro")
+
+Rel(notificationService, kafka, "Публикует ошибки обработки в notification.created.DLT", "Kafka")
+Rel(notificationService, schemaRegistry, "Получает Avro-схему", "HTTP")
+
+Rel(notificationService, notificationDb, "Сохраняет уведомления и состояния отправки email", "JPA / JDBC")
+
+Rel(notificationService, smtp, "Отправляет письма через фоновый EmailDeliveryPublisher", "SMTP")
+
+Rel(internalClient, notificationService, "GET уведомлений и PATCH статуса", "HTTP Basic / NOTIFICATION_INTERNAL")
 
 @enduml

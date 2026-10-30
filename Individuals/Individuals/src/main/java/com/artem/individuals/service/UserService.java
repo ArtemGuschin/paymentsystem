@@ -140,4 +140,61 @@ public class UserService {
     public Mono<Boolean> userExists(String email) {
         return keycloakClient.userExists(email);
     }
+
+    public Mono<TokenResponse> recoverRegistration(
+            RegistrationRequest request
+    ) {
+        return validateRegistrationRequest(request)
+                .flatMap(validRequest ->
+
+                        // 1. Проверяем пароль через Keycloak.
+                        // Без успешной авторизации восстановление запрещено.
+                        tokenService.getAccessToken(
+                                        validRequest.getEmail(),
+                                        validRequest.getPassword()
+                                )
+
+                                .flatMap(tokenResponse ->
+
+                                        // 2. Ищем уже созданного пользователя
+                                        // в Person Service.
+                                        Mono.fromCallable(() ->
+                                                        usersApi.getUserByEmail(
+                                                                validRequest.getEmail()
+                                                        )
+                                                )
+                                                .subscribeOn(
+                                                        Schedulers.boundedElastic()
+                                                )
+
+                                                .flatMap(personUser ->
+
+                                                        // 3. Восстанавливаем событие
+                                                        // USER_REGISTERED в Outbox.
+                                                        Mono.fromCallable(() ->
+                                                                        notificationOutboxService
+                                                                                .saveUserRegistered(
+                                                                                        personUser.getId(),
+                                                                                        validRequest.getEmail()
+                                                                                )
+                                                                )
+                                                                .subscribeOn(
+                                                                        Schedulers.boundedElastic()
+                                                                )
+                                                                .doOnNext(eventId ->
+                                                                        log.info(
+                                                                                "Registration recovered: userUid={}, eventId={}",
+                                                                                personUser.getId(),
+                                                                                eventId
+                                                                        )
+                                                                )
+
+                                                                // 4. Возвращаем токен.
+                                                                .thenReturn(tokenResponse)
+                                                )
+                                )
+                );
+    }
+
+
 }

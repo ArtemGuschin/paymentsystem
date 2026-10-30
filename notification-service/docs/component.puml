@@ -1,35 +1,57 @@
 @startuml
+
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
 LAYOUT_LEFT_RIGHT()
 
-Person(user, "Пользователь", "Получает уведомления и изменяет их статус")
+title Notification Service - Component Diagram
 
-Container_Ext(kafka, "Kafka", "Apache Kafka", "Топик notification.created")
-Container_Ext(schemaRegistry, "Schema Registry", "Confluent Schema Registry", "Avro-схемы Kafka-сообщений")
-ContainerDb_Ext(notificationDb, "Notification DB", "PostgreSQL", "Хранение уведомлений")
-System_Ext(smtp, "SMTP Server", "Доставка email пользователям")
+System_Ext(internalClient, "Trusted Internal Client", "Авторизованный внутренний клиент REST API")
+System_Ext(smtp, "SMTP / MailHog", "Доставка электронных писем")
+
+Container_Ext(kafka, "Kafka", "Apache Kafka", "notification.created и notification.created.DLT")
+Container_Ext(schemaRegistry, "Schema Registry", "Confluent", "Хранение Avro-схем")
+
+ContainerDb_Ext(notificationDb, "Notification DB", "PostgreSQL", "Уведомления и состояния доставки email")
 
 Container_Boundary(notificationService, "Notification Service") {
-    Component(notificationController, "NotificationController", "Spring MVC REST Controller", "GET уведомлений пользователя и PATCH статуса уведомления")
-    Component(kafkaConsumer, "NotificationCreatedConsumer", "Spring Kafka Listener", "Получает notification.created из Kafka")
-    Component(notificationServiceComponent, "NotificationService", "Service Layer", "Бизнес-логика обработки, получения и изменения уведомлений")
-    Component(notificationRepository, "NotificationRepository", "Spring Data JPA", "Чтение и сохранение уведомлений")
-    Component(emailService, "EmailService", "Spring Mail", "Отправка email при регистрации пользователя")
+
+    Component(securityConfig, "SecurityConfig", "Spring Security", "HTTP Basic Authentication и роль NOTIFICATION_INTERNAL")
+
+    Component(notificationController, "NotificationControllerV1", "REST Controller", "Получение уведомлений и завершение уведомления")
+
+    Component(kafkaConsumer, "NotificationCreatedConsumer", "Spring Kafka", "Получает события notification.created")
+
+    Component(kafkaErrorHandler, "NotificationKafkaErrorConfig", "Spring Kafka", "Повторные попытки обработки и публикация в DLT")
+
+    Component(notificationServiceComponent, "NotificationService", "Spring Service", "Сохранение уведомлений и изменение статуса")
+
+    Component(notificationRepository, "NotificationRepository", "Spring Data JPA", "Работа с таблицей notifications")
+
+    Component(emailPublisher, "EmailDeliveryPublisher", "Scheduled Component", "Поиск ожидающих писем, резервирование и повторная отправка")
+
+    Component(emailService, "EmailService", "Spring Mail", "Отправка писем через SMTP")
 }
 
-Rel(user, notificationController, "GET /api/v1/notifications/{userUid}\nPATCH /api/v1/notifications/{id}/status", "HTTP / JSON")
+Rel(internalClient, securityConfig, "GET и PATCH запросы", "HTTP Basic")
+Rel(securityConfig, notificationController, "Разрешает запросы с ролью NOTIFICATION_INTERNAL")
 
-Rel(kafka, kafkaConsumer, "Передает notification.created", "Avro / Kafka")
-Rel(kafkaConsumer, schemaRegistry, "Использует NotificationCreated schema", "HTTP")
-Rel(kafkaConsumer, notificationServiceComponent, "Передает событие на обработку")
+Rel(notificationController, notificationServiceComponent, "Получает уведомления и изменяет статусы")
 
-Rel(notificationController, notificationServiceComponent, "Получение уведомлений / изменение статуса")
+Rel(kafka, kafkaConsumer, "NotificationCreated (Avro)", "Kafka")
+Rel(kafkaConsumer, schemaRegistry, "Использует Avro-схему", "HTTP")
+Rel(kafkaConsumer, notificationServiceComponent, "process(event)")
 
-Rel(notificationServiceComponent, notificationRepository, "CRUD уведомлений")
-Rel(notificationRepository, notificationDb, "Чтение / запись", "JPA / JDBC")
+Rel(kafkaConsumer, kafkaErrorHandler, "Обработка ошибок через Spring Kafka")
+Rel(kafkaErrorHandler, kafka, "Публикует сообщение в notification.created.DLT", "Kafka")
 
-Rel(notificationServiceComponent, emailService, "Отправляет welcome email для USER_REGISTERED")
-Rel(emailService, smtp, "Отправляет email", "SMTP")
+Rel(notificationServiceComponent, notificationRepository, "Сохраняет уведомления и изменяет статусы", "JPA")
+Rel(notificationRepository, notificationDb, "Чтение и запись уведомлений", "JPA / JDBC")
+
+Rel(emailPublisher, notificationRepository, "Ищет и резервирует письма", "JPA")
+Rel(emailPublisher, notificationDb, "Обновляет SENT, PENDING или FAILED", "JDBC")
+
+Rel(emailPublisher, emailService, "sendRegistrationEmail()")
+Rel(emailService, smtp, "Отправляет welcome email", "SMTP")
 
 @enduml

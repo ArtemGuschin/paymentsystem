@@ -26,30 +26,36 @@ public class NotificationOutboxService {
     ) {
         Instant now = Instant.now();
 
-        NotificationOutboxEntity event =
-                new NotificationOutboxEntity();
+        // 1. Пытаемся создать USER_REGISTERED.
+        // Если событие уже есть, PostgreSQL пропустит INSERT.
+        int inserted = repository.insertUserRegisteredIfAbsent(
+                UUID.randomUUID(),
+                UUID.randomUUID().toString(),
+                userUid,
+                email,
+                now
+        );
 
-        event.setEventId(UUID.randomUUID().toString());
-        event.setUserUid(userUid);
-        event.setEmail(email);
+        // 2. Получаем событие из PostgreSQL.
+        // Это может быть как новая, так и существующая запись.
+        NotificationOutboxEntity event = repository
+                .findByUserUidAndNotificationType(
+                        userUid,
+                        USER_REGISTERED
+                )
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "USER_REGISTERED event not found for userUid="
+                                        + userUid
+                        )
+                );
 
-        event.setNotificationType(USER_REGISTERED);
-        event.setMessage("Welcome to Payment System");
-        event.setSubject("Welcome to Payment System");
-        event.setCreatedBy(SYSTEM);
-
-        event.setEventCreatedAt(now);
-
-        event.setStatus(NotificationOutboxEntity.Status.NEW);
-        event.setAttemptCount(0);
-        event.setNextAttemptAt(now);
-
-        repository.saveAndFlush(event);
-
+        // 3. Возвращаем первоначальный eventId.
         log.info(
-                "USER_REGISTERED notification saved to Outbox: eventId={}, userUid={}",
+                "USER_REGISTERED Outbox: eventId={}, userUid={}, inserted={}",
                 event.getEventId(),
-                userUid
+                userUid,
+                inserted == 1
         );
 
         return event.getEventId();

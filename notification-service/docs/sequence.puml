@@ -1,78 +1,191 @@
 @startuml
 
-actor User
+title Notification Service — Event Processing
+
+actor "Пользователь" as User
+
 participant "Individuals API" as Individuals
-participant "Person Service" as PersonService
-participant Keycloak
-participant "Webhook Collector Service" as WebhookCollector
-participant Kafka
-participant "Notification Service\nKafka Consumer" as NotificationConsumer
-participant "Notification Service" as NotificationService
+participant "Person Service" as Person
+participant "Keycloak" as Keycloak
+
+database "Individuals DB\nNotification Outbox" as Outbox
+participant "Individuals\nOutbox Publisher" as Publisher
+
+queue "Kafka\nnotification.created" as Kafka
+queue "Kafka\nnotification.created.DLT" as DLT
+
+participant "NotificationCreatedConsumer" as Consumer
+participant "NotificationService" as Service
 database "Notification DB\nPostgreSQL" as NotificationDb
-participant "Email Service" as EmailService
-participant "SMTP Server" as SMTP
+
+participant "EmailDeliveryPublisher\n@Scheduled" as EmailPublisher
+participant "EmailService" as EmailService
+participant "SMTP / MailHog" as SMTP
+
+actor "Внутренний HTTP-клиент" as InternalClient
+participant "NotificationControllerV1" as Controller
+
 
 == Регистрация пользователя ==
 
-User -> Individuals: POST /registration
+User -> Individuals: POST /v1/auth/registration
 
-Individuals -> PersonService: Создать пользователя
-PersonService --> Individuals: userUid
+Individuals -> Person: Создать пользователя
+Person --> Individuals: userUid
 
 Individuals -> Keycloak: Создать пользователя
+Keycloak --> Individuals: Пользователь создан
 
-alt Регистрация успешна
-    Keycloak --> Individuals: Пользователь создан
+Individuals -> Keycloak: Получить токен
+Keycloak --> Individuals: Access Token
 
-    Individuals -> Kafka: notification.created\nUSER_REGISTERED
-    Kafka --> Individuals: Event accepted
+Individuals -> Outbox: Сохранить USER_REGISTERED\nstatus = NEW
 
-    Individuals --> User: 200 OK + token
-else Ошибка создания в Keycloak
-    Keycloak --> Individuals: Error
-    Individuals -> PersonService: Компенсация - удалить пользователя
-    Individuals --> User: Registration failed
+Outbox --> Individuals: eventId
+
+Individuals --> User: Access Token
+
+
+== Восстановление после ошибки Outbox ==
+
+alt Запись USER_REGISTERED завершилась ошибкой
+
+    Individuals --> User: Ошибка регистрации
+
+    User -> Individuals: Повторный POST /v1/auth/registration
+
+    Individuals -> Keycloak: Проверить учётные данные
+    Keycloak --> Individuals: Access Token
+
+    Individuals -> Person: Найти пользователя по email
+    Person --> Individuals: Существующий userUid
+
+    Individuals -> Outbox: INSERT ... ON CONFLICT DO NOTHING
+
+    Outbox --> Individuals: Существующий или новый eventId
+
+    Individuals --> User: Access Token
+
 end
 
 
-== Уведомление от Webhook Collector ==
+== Публикация события через Outbox ==
 
-WebhookCollector -> Kafka: notification.created
-Kafka --> WebhookCollector: Event accepted
+Publisher -> Outbox: Получить события для публикации
+Outbox --> Publisher: USER_REGISTERED
+
+Publisher -> Kafka: Отправить NotificationCreated (Avro)
+
+Kafka --> Publisher: Подтверждение публикации
+
+Publisher -> Outbox: Обновить статус PUBLISHED
 
 
-== Обработка notification.created ==
+== Обработка события Kafka ==
 
-Kafka -> NotificationConsumer: NotificationCreated (Avro)
+Kafka -> Consumer: NotificationCreated (Avro)
 
-NotificationConsumer -> NotificationService: process(notification)
+Consumer -> Service: process(event)
 
-NotificationService -> NotificationDb: Сохранить уведомление\nstatus = NEW
-NotificationDb --> NotificationService: Notification saved
+Service -> NotificationDb: Проверить eventId
 
-alt type == USER_REGISTERED
-    NotificationService -> EmailService: Отправить welcome email
-    EmailService -> SMTP: SEND email
+alt Событие уже обработано
+
+    NotificationDb --> Service: Существует
+    Service --> Consumer: Пропустить дубликат
+
+else Новое событие
+
+    NotificationDb --> Service: Не существует
+
+    Service -> NotificationDb: INSERT notification\nnotification_status = NEW\nemail_delivery_status = PENDING
+
+    NotificationDb --> Service: Сохранено
+
+    Service --> Consumer: Обработка завершена
+
+end
+
+
+== Ошибки обработки Kafka ==
+
+note over Consumer, DLT
+При ошибке обработки выполняются
+до 3 повторных попыток с интервалом 1 секунда.
+
+После исчерпания попыток сообщение
+направляется в notification.created.DLT.
+end note
+
+
+== Отправка email в фоновом режиме ==
+
+EmailPublisher -> NotificationDb: Найти письма, готовые к отправке
+
+NotificationDb --> EmailPublisher: PENDING / доступные для повторной обработки
+
+EmailPublisher -> NotificationDb: Атомарно зарезервировать письмо\nstatus = SENDING
+
+EmailPublisher -> EmailService: sendRegistrationEmail()
+
+EmailService -> SMTP: Отправить письмо
+
+alt SMTP подтвердил отправку
+
     SMTP --> EmailService: Accepted
-    EmailService --> NotificationService: Email sent
+
+    EmailService --> EmailPublisher: Success
+
+    EmailPublisher -> NotificationDb: status = SENT\nemail_sent_at = now()
+
+else Ошибка отправки
+
+    SMTP --> EmailService: Error
+
+    EmailService --> EmailPublisher: Exception
+
+    EmailPublisher -> NotificationDb: Сохранить ошибку\nи следующую попытку
+
+    note right of NotificationDb
+    PENDING — повторить позже
+    FAILED — попытки исчерпаны
+    end note
+
 end
 
-NotificationService --> NotificationConsumer: Processing completed
+
+== Внутренний REST API ==
+
+InternalClient -> Controller: GET /api/v1/notifications/{userUid}\nHTTP Basic Auth
+
+note right of Controller
+Требуется роль
+NOTIFICATION_INTERNAL
+end note
+
+Controller -> Service: getNotificationsByUserUid()
+
+Service -> NotificationDb: SELECT notifications
+
+NotificationDb --> Service: Notifications
+
+Service --> Controller: Notifications
+
+Controller --> InternalClient: 200 OK
 
 
-== Получение уведомлений ==
+== Завершение уведомления ==
 
-User -> NotificationService: GET /api/v1/notifications/{userUid}
-NotificationService -> NotificationDb: SELECT by userUid
-NotificationDb --> NotificationService: Notifications
-NotificationService --> User: 200 OK + notifications
+InternalClient -> Controller: PATCH /api/v1/notifications/{id}/status\nHTTP Basic Auth
 
+Controller -> Service: completeNotification(id)
 
-== Изменение статуса ==
+Service -> NotificationDb: Обновить notification_status\nна COMPLETED
 
-User -> NotificationService: PATCH /api/v1/notifications/{id}/status
-NotificationService -> NotificationDb: NEW -> COMPLETED
-NotificationDb --> NotificationService: Updated notification
-NotificationService --> User: 200 OK
+NotificationDb --> Service: Обновлено
+
+Service --> Controller: NotificationResponse
+
+Controller --> InternalClient: 200 OK
 
 @enduml
