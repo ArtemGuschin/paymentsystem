@@ -1,6 +1,7 @@
 package com.artem.individuals.service;
 
 import com.artem.individuals.client.KeycloakIntegrationClient;
+import java.time.Duration;
 import com.artem.individuals.dto.request.RegistrationRequest;
 import com.artem.individuals.dto.response.TokenResponse;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -48,7 +49,11 @@ class KeycloakIntegrationClientTest {
             .withEnv("KEYCLOAK_ADMIN", ADMIN_USER)
             .withEnv("KEYCLOAK_ADMIN_PASSWORD", ADMIN_PASSWORD)
             .withCommand("start-dev")
-            .waitingFor(Wait.forHttp("/admin").forStatusCode(200));
+            .waitingFor(
+                    Wait.forHttp("/realms/master/.well-known/openid-configuration")
+                            .forStatusCode(200)
+                            .withStartupTimeout(Duration.ofMinutes(3))
+            );
 
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {
@@ -61,38 +66,105 @@ class KeycloakIntegrationClientTest {
     }
 
     @BeforeAll
-    static void setupKeycloak() {
-        // Настройка Keycloak через API
-        String serverUrl = "http://" + keycloakContainer.getHost() + ":" + keycloakContainer.getMappedPort(8080);
+    static void setupKeycloak() throws InterruptedException {
 
-        // Создание Keycloak Admin Client
-        org.keycloak.admin.client.Keycloak keycloakAdmin = org.keycloak.admin.client.KeycloakBuilder.builder()
-                .serverUrl(serverUrl)
-                .realm("master")
-                .username(ADMIN_USER)
-                .password(ADMIN_PASSWORD)
-                .clientId("admin-cli")
-                .build();
+        // 1. Получаем адрес тестового Keycloak
+        String serverUrl = "http://"
+                + keycloakContainer.getHost()
+                + ":"
+                + keycloakContainer.getMappedPort(8080);
 
-        // Создание realm
-        org.keycloak.representations.idm.RealmRepresentation realm = new org.keycloak.representations.idm.RealmRepresentation();
-        realm.setRealm(REALM_NAME);
-        realm.setEnabled(true);
-        keycloakAdmin.realms().create(realm);
+        // 2. Создаём Keycloak Admin Client
+        org.keycloak.admin.client.Keycloak keycloakAdmin =
+                org.keycloak.admin.client.KeycloakBuilder.builder()
+                        .serverUrl(serverUrl)
+                        .realm("master")
+                        .username(ADMIN_USER)
+                        .password(ADMIN_PASSWORD)
+                        .clientId("admin-cli")
+                        .build();
 
-        // Создание client
-        org.keycloak.representations.idm.ClientRepresentation client = new org.keycloak.representations.idm.ClientRepresentation();
-        client.setClientId(CLIENT_ID);
-        client.setSecret(CLIENT_SECRET);
-        client.setDirectAccessGrantsEnabled(true);
-        client.setPublicClient(false);
-        keycloakAdmin.realm(REALM_NAME).clients().create(client);
+        try {
 
-        // Создание ролей
-        for (String roleName : List.of("user", "admin")) {
-            org.keycloak.representations.idm.RoleRepresentation role = new org.keycloak.representations.idm.RoleRepresentation();
-            role.setName(roleName);
-            keycloakAdmin.realm(REALM_NAME).roles().create(role);
+            // 3. Ждём готовности администратора Keycloak
+            for (int attempt = 1; attempt <= 20; attempt++) {
+
+                try {
+
+                    keycloakAdmin.tokenManager()
+                            .getAccessTokenString();
+
+                    System.out.println(
+                            "Keycloak admin is ready. Attempt: "
+                                    + attempt
+                    );
+
+                    break;
+
+                } catch (RuntimeException ex) {
+
+                    if (attempt == 20) {
+
+                        System.err.println(
+                                "Keycloak startup logs:\n"
+                                        + keycloakContainer.getLogs()
+                        );
+
+                        throw ex;
+                    }
+
+                    System.out.println(
+                            "Waiting for Keycloak admin. Attempt: "
+                                    + attempt
+                    );
+
+                    Thread.sleep(1000);
+                }
+            }
+
+            // 4. Создаём тестовый Realm
+            org.keycloak.representations.idm.RealmRepresentation realm =
+                    new org.keycloak.representations.idm.RealmRepresentation();
+
+            realm.setRealm(REALM_NAME);
+            realm.setEnabled(true);
+
+            keycloakAdmin.realms().create(realm);
+
+            // 5. Создаём тестовый Client
+            org.keycloak.representations.idm.ClientRepresentation client =
+                    new org.keycloak.representations.idm.ClientRepresentation();
+
+            client.setClientId(CLIENT_ID);
+            client.setSecret(CLIENT_SECRET);
+            client.setDirectAccessGrantsEnabled(true);
+            client.setPublicClient(false);
+
+            keycloakAdmin.realm(REALM_NAME)
+                    .clients()
+                    .create(client);
+
+            // 6. Создаём роли
+            for (String roleName : List.of("user", "admin")) {
+
+                org.keycloak.representations.idm.RoleRepresentation role =
+                        new org.keycloak.representations.idm.RoleRepresentation();
+
+                role.setName(roleName);
+
+                keycloakAdmin.realm(REALM_NAME)
+                        .roles()
+                        .create(role);
+            }
+
+            System.out.println(
+                    "Keycloak test realm configured successfully"
+            );
+
+        } finally {
+
+            // 7. Закрываем Admin Client
+            keycloakAdmin.close();
         }
     }
 

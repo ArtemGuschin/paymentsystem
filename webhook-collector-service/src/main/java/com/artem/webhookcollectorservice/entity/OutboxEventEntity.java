@@ -1,3 +1,4 @@
+
 package com.artem.webhookcollectorservice.entity;
 
 import com.artem.webhookcollectorservice.outbox.OutboxStatus;
@@ -39,16 +40,47 @@ public class OutboxEventEntity {
     @Column(name = "status", nullable = false, length = 25)
     private OutboxStatus status;
 
-    public OutboxEventEntity(UUID aggregateId, String eventType, String payload) {
+    @Column(name = "attempt_count", nullable = false)
+    private int attemptCount;
+
+    @Column(name = "next_attempt_at", nullable = false)
+    private LocalDateTime nextAttemptAt;
+
+    @Column(name = "last_error", columnDefinition = "TEXT")
+    private String lastError;
+
+    public OutboxEventEntity(
+            UUID aggregateId,
+            String eventType,
+            String payload
+    ) {
         this.aggregateId = aggregateId;
         this.eventType = eventType;
         this.payload = payload;
         this.status = OutboxStatus.NEW;
         this.createdAt = LocalDateTime.now();
+        this.attemptCount = 0;
+        this.nextAttemptAt = this.createdAt;
     }
 
     public void markAsPublished() {
         this.status = OutboxStatus.PUBLISHED;
         this.publishedAt = LocalDateTime.now();
+        this.lastError = null;
+    }
+
+    public void recordPublishFailure(
+            String error,
+            LocalDateTime retryAt,
+            int maxAttempts
+    ) {
+        this.attemptCount++;
+        this.lastError = error;
+
+        if (this.attemptCount >= maxAttempts) {
+            this.status = OutboxStatus.FAILED;
+        } else {
+            this.nextAttemptAt = retryAt;
+        }
     }
 }

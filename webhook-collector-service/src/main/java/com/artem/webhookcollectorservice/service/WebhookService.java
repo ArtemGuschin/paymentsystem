@@ -1,5 +1,6 @@
 package com.artem.webhookcollectorservice.service;
 
+import com.artem.webhookcollectorservice.dto.NotificationOutboxPayload;
 import com.artem.webhookcollectorservice.dto.PaymentProviderWebhookRequest;
 import com.artem.webhookcollectorservice.dto.PaymentStatusUpdatedEvent;
 import com.artem.webhookcollectorservice.entity.OutboxEventEntity;
@@ -14,15 +15,35 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class WebhookService {
 
-    private static final String PROVIDER = "FAKE_PAYMENT_PROVIDER";
-    private static final String PAYMENT_STATUS_UPDATED = "payment.status.updated";
-    private static final String TRANSACTION_SUCCESS = "TRANSACTION_SUCCESS";
+    private static final String PROVIDER =
+            "FAKE_PAYMENT_PROVIDER";
+
+    private static final String PAYMENT_STATUS_UPDATED =
+            "payment.status.updated";
+
+    private static final String NOTIFICATION_CREATED =
+            "notification.created";
+
+    private static final String TRANSACTION_SUCCESS =
+            "TRANSACTION_SUCCESS";
+
+    private static final String TRANSACTION_FAILED =
+            "TRANSACTION_FAILED";
+
+    private static final String PAYMENT_SUCCEEDED =
+            "PAYMENT_SUCCEEDED";
+    private static final String PAYMENT_FAILED =
+            "PAYMENT_FAILED";
+
+    private static final String SYSTEM =
+            "SYSTEM";
 
     private final PaymentProviderCallbackRepository callbackRepository;
     private final OutboxRepository outboxRepository;
@@ -34,65 +55,167 @@ public class WebhookService {
             PaymentProviderWebhookRequest request
     ) {
         try {
-            String body = objectMapper.writeValueAsString(request);
 
-            // Unknown event types must be stored for investigation,
-            // but must never produce a payment status event.
-            if (!TRANSACTION_SUCCESS.equals(request.getEventType())) {
+            String body =
+                    objectMapper.writeValueAsString(
+                            request
+                    );
+
+            /*
+             * Неизвестные типы webhook сохраняем отдельно.
+             * Kafka-события по ним не создаём.
+             */
+            if (!TRANSACTION_SUCCESS.equals(request.getEventType())
+                    && !TRANSACTION_FAILED.equals(request.getEventType())) {
+
+
                 unknownCallbackRepository.save(
-                        new UnknownCallbackEntity(body)
+                        new UnknownCallbackEntity(
+                                body
+                        )
                 );
+
                 return;
             }
 
-            // Known event must contain a status valid for this event type.
-            if (!"SUCCESS".equals(request.getPayload().getStatus())) {
+            /*
+             * Тип события должен соответствовать статусу:
+             *
+             * TRANSACTION_SUCCESS -> SUCCESS
+             * TRANSACTION_FAILED  -> FAILED
+             */
+            String expectedStatus =
+                    TRANSACTION_SUCCESS.equals(request.getEventType())
+                            ? "SUCCESS"
+                            : "FAILED";
+
+            if (!expectedStatus.equals(request.getPayload().getStatus())) {
                 throw new InvalidWebhookException(
-                        "Status " + request.getPayload().getStatus()
+                        "Status "
+                                + request.getPayload().getStatus()
                                 + " is not valid for event type "
                                 + request.getEventType()
                 );
             }
 
-            // Atomic idempotency:
-            // only one concurrent request can insert the callback.
-            int inserted = callbackRepository.insertIfAbsent(
-                    UUID.randomUUID(),
-                    body,
-                    request.getEntityId(),
-                    request.getEventType(),
-                    PROVIDER
-            );
+            /*
+             * Atomic idempotency.
+             *
+             * Один и тот же provider callback может быть
+             * сохранён только один раз.
+             */
+            int inserted =
+                    callbackRepository.insertIfAbsent(
+                            UUID.randomUUID(),
+                            body,
+                            request.getEntityId(),
+                            request.getEventType(),
+                            PROVIDER
+                    );
 
-            // Duplicate webhook was already accepted.
-            // Do not create another outbox event.
+            /*
+             * Duplicate webhook.
+             *
+             * Никаких новых outbox-событий не создаём.
+             */
             if (inserted == 0) {
                 return;
             }
 
-            PaymentStatusUpdatedEvent event =
+            UUID transactionUid =
+                    request.getPayload()
+                            .getTransactionUid();
+
+            /*
+             * =================================================
+             * 1. payment.status.updated
+             * =================================================
+             */
+            PaymentStatusUpdatedEvent paymentStatusEvent =
                     new PaymentStatusUpdatedEvent(
-                            request.getPayload().getTransactionUid(),
+                            transactionUid,
                             request.getPayload().getStatus()
                     );
 
-            String eventPayload =
-                    objectMapper.writeValueAsString(event);
-
-            OutboxEventEntity outboxEvent =
-                    new OutboxEventEntity(
-                            request.getPayload().getTransactionUid(),
-                            PAYMENT_STATUS_UPDATED,
-                            eventPayload
+            String paymentStatusPayload =
+                    objectMapper.writeValueAsString(
+                            paymentStatusEvent
                     );
 
-            outboxRepository.save(outboxEvent);
+            OutboxEventEntity paymentStatusOutboxEvent =
+                    new OutboxEventEntity(
+                            transactionUid,
+                            PAYMENT_STATUS_UPDATED,
+                            paymentStatusPayload
+                    );
+
+            outboxRepository.save(
+                    paymentStatusOutboxEvent
+            );
+
+            /*
+             * =================================================
+             * 2. notification.created
+             * =================================================
+             *
+             * userUid здесь намеренно ещё нет.
+             *
+             * OutboxPublisher получит его позднее
+             * из Transaction Service по transactionUid.
+             */
+
+            boolean success =
+                    TRANSACTION_SUCCESS.equals(request.getEventType());
+
+            NotificationOutboxPayload notificationPayload =
+                    new NotificationOutboxPayload(
+                            UUID.randomUUID().toString(),
+                            success ? PAYMENT_SUCCEEDED : PAYMENT_FAILED,
+                            success
+                                    ? buildSuccessMessage(request)
+                                    : "Payment provider rejected transaction "
+                                    + transactionUid
+                                    + ". Amount: "
+                                    + request.getPayload().getAmount(),
+                            transactionUid.toString(),
+                            null,
+                            success ? "Payment completed" : "Payment failed",
+                            SYSTEM,
+                            Instant.now().toEpochMilli()
+                    );
+
+
+            String notificationJson =
+                    objectMapper.writeValueAsString(
+                            notificationPayload
+                    );
+
+            OutboxEventEntity notificationOutboxEvent =
+                    new OutboxEventEntity(
+                            transactionUid,
+                            NOTIFICATION_CREATED,
+                            notificationJson
+                    );
+
+            outboxRepository.save(
+                    notificationOutboxEvent
+            );
 
         } catch (JsonProcessingException e) {
+
             throw new IllegalStateException(
                     "Failed to serialize webhook event",
                     e
             );
         }
+    }
+
+    private String buildSuccessMessage(
+            PaymentProviderWebhookRequest request
+    ) {
+        return "Payment provider confirmed transaction "
+                + request.getPayload().getTransactionUid()
+                + " successfully. Amount: "
+                + request.getPayload().getAmount();
     }
 }

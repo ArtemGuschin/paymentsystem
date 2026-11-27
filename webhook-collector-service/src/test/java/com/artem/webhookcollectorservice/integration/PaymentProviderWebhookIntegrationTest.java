@@ -96,7 +96,7 @@ class PaymentProviderWebhookIntegrationTest {
                 outboxRepository.findAll();
 
         assertThat(callbacks).hasSize(1);
-        assertThat(outboxEvents).hasSize(1);
+        assertThat(outboxEvents).hasSize(2);
 
         PaymentProviderCallbackEntity callback = callbacks.getFirst();
 
@@ -104,16 +104,37 @@ class PaymentProviderWebhookIntegrationTest {
         assertThat(callback.getType()).isEqualTo("TRANSACTION_SUCCESS");
         assertThat(callback.getProvider()).isEqualTo("FAKE_PAYMENT_PROVIDER");
 
-        OutboxEventEntity outboxEvent = outboxEvents.getFirst();
+        OutboxEventEntity paymentStatusEvent =
+                findOutboxEventByType(
+                        outboxEvents,
+                        "payment.status.updated"
+                );
 
-        assertThat(outboxEvent.getAggregateId()).isEqualTo(transactionUid);
-        assertThat(outboxEvent.getEventType())
-                .isEqualTo("payment.status.updated");
-        assertThat(outboxEvent.getStatus()).isEqualTo(OutboxStatus.NEW);
+        OutboxEventEntity notificationEvent =
+                findOutboxEventByType(
+                        outboxEvents,
+                        "notification.created"
+                );
 
-        assertThat(outboxEvent.getPayload())
+        assertThat(paymentStatusEvent.getAggregateId())
+                .isEqualTo(transactionUid);
+
+        assertThat(paymentStatusEvent.getStatus())
+                .isEqualTo(OutboxStatus.NEW);
+
+        assertThat(paymentStatusEvent.getPayload())
                 .contains(transactionUid.toString())
                 .contains("SUCCESS");
+
+        assertThat(notificationEvent.getAggregateId())
+                .isEqualTo(transactionUid);
+
+        assertThat(notificationEvent.getStatus())
+                .isEqualTo(OutboxStatus.NEW);
+
+        assertThat(notificationEvent.getPayload())
+                .contains(transactionUid.toString())
+                .contains("PAYMENT_SUCCEEDED");
     }
 
     @Test
@@ -180,16 +201,23 @@ class PaymentProviderWebhookIntegrationTest {
                 .andExpect(status().isOk());
 
         assertThat(callbackRepository.findAll()).hasSize(1);
-        assertThat(outboxRepository.findAll()).hasSize(1);
 
-        OutboxEventEntity outboxEvent =
-                outboxRepository.findAll().getFirst();
+        List<OutboxEventEntity> outboxEvents =
+                outboxRepository.findAll();
 
-        assertThat(outboxEvent.getAggregateId())
-                .isEqualTo(transactionUid);
+        assertThat(outboxEvents).hasSize(2);
 
-        assertThat(outboxEvent.getStatus())
-                .isEqualTo(OutboxStatus.NEW);
+        assertThat(outboxEvents)
+                .allMatch(event ->
+                        transactionUid.equals(
+                                event.getAggregateId()
+                        )
+                );
+
+        assertThat(outboxEvents)
+                .allMatch(event ->
+                        event.getStatus() == OutboxStatus.NEW
+                );
     }
     @Test
     void shouldStoreUnknownEventWithoutCreatingCallbackOrOutbox() throws Exception {
@@ -309,7 +337,7 @@ class PaymentProviderWebhookIntegrationTest {
 
         // 3. Исправленная доставка должна обработаться как первая валидная.
         assertThat(callbackRepository.findAll()).hasSize(1);
-        assertThat(outboxRepository.findAll()).hasSize(1);
+        assertThat(outboxRepository.findAll()).hasSize(2);
         assertThat(unknownCallbackRepository.findAll()).isEmpty();
 
         PaymentProviderCallbackEntity callback =
@@ -318,11 +346,29 @@ class PaymentProviderWebhookIntegrationTest {
         assertThat(callback.getProviderTransactionId()).isEqualTo(62L);
         assertThat(callback.getType()).isEqualTo("TRANSACTION_SUCCESS");
 
-        OutboxEventEntity outboxEvent =
-                outboxRepository.findAll().getFirst();
+        List<OutboxEventEntity> outboxEvents =
+                outboxRepository.findAll();
 
-        assertThat(outboxEvent.getAggregateId()).isEqualTo(transactionUid);
-        assertThat(outboxEvent.getPayload()).contains("SUCCESS");
+        assertThat(outboxEvents)
+                .allMatch(event ->
+                        transactionUid.equals(
+                                event.getAggregateId()
+                        )
+                );
+
+        assertThat(
+                findOutboxEventByType(
+                        outboxEvents,
+                        "payment.status.updated"
+                ).getPayload()
+        ).contains("SUCCESS");
+
+        assertThat(
+                findOutboxEventByType(
+                        outboxEvents,
+                        "notification.created"
+                ).getPayload()
+        ).contains("PAYMENT_SUCCEEDED");
     }
 
     @Test
@@ -456,9 +502,14 @@ class PaymentProviderWebhookIntegrationTest {
             assertThat(callbackRepository.findAll())
                     .hasSize(1);
 
-            // Outbox event тоже должен быть создан только один раз.
-            assertThat(outboxRepository.findAll())
-                    .hasSize(1);
+            // Даже при 16 конкурентных duplicate webhook
+            // должна быть создана только одна пара outbox-событий:
+            // payment.status.updated + notification.created.
+            List<OutboxEventEntity> outboxEvents =
+                    outboxRepository.findAll();
+
+            assertThat(outboxEvents)
+                    .hasSize(2);
 
             PaymentProviderCallbackEntity callback =
                     callbackRepository.findAll().getFirst();
@@ -466,20 +517,44 @@ class PaymentProviderWebhookIntegrationTest {
             assertThat(callback.getProviderTransactionId())
                     .isEqualTo(64L);
 
-            OutboxEventEntity outboxEvent =
-                    outboxRepository.findAll().getFirst();
+            assertThat(outboxEvents)
+                    .allMatch(event ->
+                            transactionUid.equals(
+                                    event.getAggregateId()
+                            )
+                    );
 
-            assertThat(outboxEvent.getAggregateId())
-                    .isEqualTo(transactionUid);
+            assertThat(
+                    findOutboxEventByType(
+                            outboxEvents,
+                            "payment.status.updated"
+                    ).getPayload()
+            ).contains("SUCCESS");
 
-            assertThat(outboxEvent.getPayload())
-                    .contains("SUCCESS");
+            assertThat(
+                    findOutboxEventByType(
+                            outboxEvents,
+                            "notification.created"
+                    ).getPayload()
+            ).contains("PAYMENT_SUCCEEDED");
 
         } finally {
             executor.shutdownNow();
         }
     }
-
+    private OutboxEventEntity findOutboxEventByType(
+            List<OutboxEventEntity> events,
+            String eventType
+    ) {
+        return events.stream()
+                .filter(event -> eventType.equals(event.getEventType()))
+                .findFirst()
+                .orElseThrow(() ->
+                        new AssertionError(
+                                "Outbox event not found: " + eventType
+                        )
+                );
+    }
 
 
 

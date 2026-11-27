@@ -16,6 +16,20 @@ java {
 
 repositories {
     mavenCentral()
+
+    maven {
+        url = uri("https://packages.confluent.io/maven/")
+    }
+
+    maven {
+        url = uri("http://localhost:8081/repository/maven-public/")
+        isAllowInsecureProtocol = true
+
+        credentials {
+            username = "admin"
+            password = "admin123"
+        }
+    }
 }
 
 dependencies {
@@ -25,9 +39,14 @@ dependencies {
 
     implementation("org.springframework.kafka:spring-kafka")
 
+    implementation("io.confluent:kafka-avro-serializer:7.9.0")
+
+    implementation("com.artem:common-library:1.0.0-20261013.134120-1")
+
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
+
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
 

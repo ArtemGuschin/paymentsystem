@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
@@ -43,6 +44,14 @@ public class TransactionService {
 
     @Value("${webhook.collector-url}")
     private String webhookCollectorUrl;
+
+    /**
+     * Только для E2E-тестирования.
+     * Платёж с указанной суммой будет отклонён.
+     * По умолчанию имитация отключена.
+     */
+    @Value("${FAKE_PROVIDER_FAIL_AMOUNT:-1}")
+    private BigDecimal simulatedFailAmount;
 
 
     @Transactional
@@ -152,9 +161,12 @@ public class TransactionService {
             try {
                 Thread.sleep(2000);
 
-                tx.setStatus("SUCCESS");
+                boolean shouldFail =
+                        tx.getAmount().compareTo(simulatedFailAmount) == 0;
+
+                tx.setStatus(shouldFail ? "FAILED" : "SUCCESS");
                 tx.setUpdatedAt(Instant.now());
-                
+
                 transactionRepository.save(tx);
 
                 sendWebhook(tx);
@@ -190,8 +202,16 @@ public class TransactionService {
         payload.put("status", tx.getStatus());
         payload.put("amount", tx.getAmount());
 
+        String eventType = switch (tx.getStatus()) {
+            case "SUCCESS" -> "TRANSACTION_SUCCESS";
+            case "FAILED" -> "TRANSACTION_FAILED";
+            default -> throw new IllegalStateException(
+                    "Unexpected final transaction status: " + tx.getStatus()
+            );
+        };
+
         WebhookEntity webhook = WebhookEntity.builder()
-                .eventType("TRANSACTION_SUCCESS")
+                .eventType(eventType)
                 .entityId(tx.getId())
                 .payload(payload)
                 .notificationUrl(tx.getNotificationUrl())
@@ -207,7 +227,7 @@ public class TransactionService {
             );
 
             Map<String, Object> body = new HashMap<>();
-            body.put("eventType", "TRANSACTION_SUCCESS");
+            body.put("eventType", eventType);
             body.put("entityId", tx.getId());
             body.put("payload", payload);
 

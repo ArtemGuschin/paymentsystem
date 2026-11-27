@@ -1,0 +1,5 @@
+
+ALTER TABLE outbox_events
+    ADD COLUMN attempt_count INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN next_attempt_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN last_error TEXT;
